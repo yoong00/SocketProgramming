@@ -1,0 +1,350 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using DevExpress.XtraEditors.Repository;
+using DevExpress.XtraLayout;
+using DevExpress.XtraGrid;
+using System.IO;
+
+
+namespace ZeusUI
+{
+    public partial class View_Alarm : Form
+    {
+        public string AlarmValue { get; set; }
+        public MDIMainFrm m_MDIMainFrm;
+
+        List<string> Alarm_Class = new List<string>();
+        List<string> Alarm_Time = new List<string>();
+        List<string> Alarm_Category = new List<string>();
+        List<string> Alarm_Type = new List<string>();
+        List<string> Alarm_Summary = new List<string>();
+        List<int> CurrnetrowHandleNum = new List<int>();
+
+        DataTable dt;
+        DataRow dr1;
+        int[] rowHandleNum;
+        int[] rowHandleNum_current;
+        int handlenum = 0;
+
+        public View_Alarm(MDIMainFrm FormObj)
+        {
+            InitializeComponent();
+            m_MDIMainFrm = FormObj;
+            m_MDIMainFrm.sendAlarm += new MDIMainFrm.sendDelegate(getValue);           
+        }
+
+        private void getValue(string value)
+        {
+
+        }
+
+        private struct AlarmList
+        {
+            public string arClass, arTime, arCategory, arType, arSummary;
+            public object btn;
+        }
+
+        private void Alarm_Load(object sender, EventArgs e)
+        {
+           
+            //읽기
+            string[] Readlines;
+            
+        
+            Readlines = File.ReadAllLines(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt");
+
+            FileInfo fileInfo = new FileInfo(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt");
+            if (fileInfo.Exists)
+            {
+                for (int i = 0; i < Readlines.Length; i++)
+                {
+                    if (Readlines[i] == "")
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        string[] line = Readlines[i].Split(',');
+                        Alarm_Class.Add(line[1]);
+                        Alarm_Time.Add(line[2]);
+                        Alarm_Category.Add(line[3]);
+                        Alarm_Type.Add(line[4]);
+                        Alarm_Summary.Add(line[5]);
+                    }
+                }
+            }
+
+            dt = new DataTable();
+            dt.Columns.Add("Class", Type.GetType("System.String"));
+            dt.Columns.Add("Time", Type.GetType("System.String"));
+            dt.Columns.Add("Category", Type.GetType("System.String"));
+            dt.Columns.Add("Type", Type.GetType("System.String"));
+            dt.Columns.Add("Summary", Type.GetType("System.String"));
+            dt.Columns.Add("Clear", Type.GetType("System.String"));
+            dt.Columns.Add("Delete", Type.GetType("System.String"));
+
+            for (int i = 0; i < Readlines.Length; i++)
+            {
+                dr1 = dt.NewRow();
+
+                dt.Rows.Add(dr1);
+      
+            }
+
+            gridControl1.DataSource = dt;
+
+            rowHandleNum = new int[dt.Rows.Count];
+
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                gridView4.SetRowCellValue(i, gridView4.Columns["Class"], Alarm_Class[i]);
+                gridView4.SetRowCellValue(i, gridView4.Columns["Time"], Alarm_Time[i]);
+                gridView4.SetRowCellValue(i, gridView4.Columns["Category"], Alarm_Category[i]);
+                gridView4.SetRowCellValue(i, gridView4.Columns["Type"], Alarm_Type[i]);
+                gridView4.SetRowCellValue(i, gridView4.Columns["Summary"], Alarm_Summary[i]);
+
+                rowHandleNum[i] = i;
+            }
+
+            gridView4.Columns[6].ColumnEdit = this.repositoryItemDeleteButton;
+            gridView4.Columns[5].ColumnEdit = this.repositoryItemClearButton;           
+            gridView4.Columns[6].Width = 25;
+            gridView4.Columns[5].Width = 25;
+
+            //for (int i = 0; i < dt.Columns.Count; i++)
+            //    dt.Columns[i].ReadOnly = true;
+      
+        }
+
+        private void repositoryItemDeleteButton_ButtonClick(object sender, DevExpress.XtraEditors.Controls.ButtonPressedEventArgs e)
+        {
+            
+        }
+
+
+        string Secondkey1, FirstKey;
+        
+        public void getAlarmMsg(string value)
+        {
+            StreamReader sr1 = new StreamReader(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt");
+                    
+            //text 쓰기
+            string[] dataArray = value.Split(' ');
+
+            string m_DateTime = dataArray[2];
+            int m_AlarmStatus = Convert.ToInt32(dataArray[9]);
+            string AlarmLog = value;
+
+            FirstKey = sr1.ReadLine();
+
+            while (sr1.EndOfStream == false)
+            {
+                while (true)
+                {
+                    Secondkey1 = sr1.ReadLine();
+                    if (Secondkey1 != null)
+                    {
+                        string[] handlingNum = Secondkey1.Split(',');
+                        handlenum= Convert.ToInt32(handlingNum[0]);
+                        CurrnetrowHandleNum.Add(Convert.ToInt32(handlingNum[0]));                        
+                    }
+                    else
+                    {
+                        goto exit;
+                    }
+                }
+            }
+        exit:
+
+            sr1.Close();
+            
+           
+
+            using (StreamWriter outputfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "Alarm.txt", true))
+            {
+                outputfile.WriteLine(DateTime.Now.ToString() + "\t" + AlarmLog);
+            }
+
+            switch (m_AlarmStatus)
+            {
+                case 0:
+                    using (StreamWriter outputfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt", true))
+                    {
+                        string AlarmValue;
+                        int rowhandle = 0;
+                        int FirstHandle = 0;
+                        if (FirstKey == null)
+                        {
+                            AlarmValue = FirstHandle + "," + "0,0,0,0,0";
+                            rowhandle = FirstHandle;
+                        }
+                        else if(handlenum == -1)
+                        {
+                            AlarmValue = handlenum + 2 + "," + "0,0,0,0,0";                           
+                            handlenum++;
+                            rowhandle = 0;
+                        }
+                        else
+                        {
+                            AlarmValue = handlenum + 1 + "," + "0,0,0,0,0";                           
+                            handlenum++;
+                            rowhandle = handlenum - 1;                        
+                        }
+                        outputfile.WriteLine(AlarmValue);
+
+                        string[] line = AlarmValue.Split(',');
+                        Alarm_Class.Add(line[1]);
+                        Alarm_Time.Add(line[2]);
+                        Alarm_Category.Add(line[3]);
+                        Alarm_Type.Add(line[4]);
+                        Alarm_Summary.Add(line[5]);
+
+                        dr1 = dt.NewRow();
+                        dt.Rows.Add(dr1);
+
+                        gridControl1.DataSource = dt;
+
+                        if (FirstKey == null)
+                        {
+                            gridView4.SetRowCellValue(rowhandle, gridView4.Columns[0], Alarm_Class[0]);
+                            gridView4.SetRowCellValue(rowhandle, gridView4.Columns[1], Alarm_Time[0]);
+                            gridView4.SetRowCellValue(rowhandle, gridView4.Columns[2], Alarm_Category[0]);
+                            gridView4.SetRowCellValue(rowhandle, gridView4.Columns[3], Alarm_Type[0]);
+                            gridView4.SetRowCellValue(rowhandle, gridView4.Columns[4], Alarm_Summary[0]);
+                        }
+                        else
+                        {
+                            gridView4.SetRowCellValue(rowhandle + 1, gridView4.Columns[0], Alarm_Class[0]);
+                            gridView4.SetRowCellValue(rowhandle + 1, gridView4.Columns[1], Alarm_Time[0]);
+                            gridView4.SetRowCellValue(rowhandle + 1, gridView4.Columns[2], Alarm_Category[0]);
+                            gridView4.SetRowCellValue(rowhandle + 1, gridView4.Columns[3], Alarm_Type[0]);
+                            gridView4.SetRowCellValue(rowhandle + 1, gridView4.Columns[4], Alarm_Summary[0]);
+                        }
+
+                        if(gridView4.RowFilter.Contains("0") == true)
+                        {
+
+                        }
+
+                    }
+                    break;
+                case 1:
+                    using (StreamWriter outputfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt", true))
+                    {
+                        outputfile.WriteLine(AlarmLog);
+                    }
+                    break;
+                case 2:
+                    using (StreamWriter outputfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt", true))
+                    {
+                        outputfile.WriteLine(AlarmLog);
+                    }
+                    break;
+            }
+            
+            testMsgBox.Text = value;
+        }
+
+
+        private void repositoryItemDeleteButton_ButtonClick_1(object sender, DevExpress.XtraEditors.Controls.ButtonPressedEventArgs e)
+        {
+
+            //Delete 버튼 눌렀을때 확인 
+
+            if (MessageBox.Show("Do you want to delete the Alarm?", "종료", MessageBoxButtons.YesNo) == DialogResult.Yes)
+            {
+                //경로에 있는 텍스트 읽어와 buf에 저장
+                StreamReader sr1 = new StreamReader(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt");
+                string buf = sr1.ReadToEnd();
+                buf.Trim();
+
+                sr1.BaseStream.Position = 0;
+                string[] line;
+                string key;
+
+                //현재 선택한 핸들번호 변수
+                var row = gridView4.FocusedRowHandle;
+
+                //GridView에 띄운 값 수정 못하게 ReadOnly 적용
+                //for (int i = 0; i < dt.Rows.Count; i++)
+                //{
+                //if (row == rowHandleNum[i] || row == CurrnetrowHandleNum[i])
+                //{
+
+                //선택한 행 삭제
+                gridView4.DeleteRow(row);
+                while (sr1.EndOfStream == false)
+                {
+                    key = sr1.ReadLine();
+                    line = key.Split(',');
+
+                    //아무것도 안들어있는 공백이라면 반복문 종료
+                    if (line[0] == "")
+                        goto exit;
+
+                    // 선택한 핸들번호와 txt에 적혀있는 핸들번호를 찾아 삭제
+                    if (Convert.ToInt16(line[0]) == row)
+                    {
+                        //데이터 파싱
+                        int offset = buf.IndexOf(key, 0);
+                        buf = buf.Remove(offset, key.Length + 2);
+                        key = key.Replace(key, "");
+                        buf = buf.Insert(offset, key);
+
+                        while (true)
+                        {
+                            //txt에 저장되어 있는 값들 한줄씩 읽으면서 값 확인
+                            string Secondkey;
+                            Secondkey = sr1.ReadLine();
+                            string[] line2;
+                            string tot;
+
+                            //선택한 핸들 삭제 후 txt파일에 저장되어 있는 핸들과 gridview에 떠있는 핸들번호를 일치시킨다.
+                            if (Secondkey != null && Secondkey != "")
+                            {
+                                line2 = Secondkey.Split(',');
+
+                                tot = Convert.ToInt16(line2[0]) - 1 + "," + line2[1] + "," + line2[2] + "," + line2[3] + "," + line2[4] + "," + line2[5];
+
+                                int offset1 = buf.IndexOf(Secondkey, 0);
+
+                                buf = buf.Remove(offset1, tot.Length + 2);
+                                buf = buf.Insert(offset1, tot + "\r\n");
+                            }
+                            else
+                            {
+                                buf.Trim();
+                                break;
+                            }
+
+                        }
+
+                    }
+                exit:
+                    continue;
+                }
+                //데이터 받았을때 파싱하는 변수 (182 ~ 198)줄까지 쓰임
+                handlenum--;
+
+                sr1.Close();
+                StreamWriter sw = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "AlarmCurrent.txt");
+                sw.Write(buf);
+                sw.Close();
+                // }
+
+                //}
+            }
+
+        }
+
+      
+
+    }
+}
