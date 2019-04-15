@@ -1,0 +1,1238 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.IO;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Net;
+using System.Net.Sockets;
+
+namespace Zeus_Async
+{
+    public class SocketClass 
+    {
+        MDIMainFrm m_MDIMainFrm;
+
+        //Header Command Values
+        public enum Command
+        {
+            Gathering_Start_Req = 111,
+            Gathering_Start_Res = 211,
+            Gathering_Stop_Req = 112,
+            Gathering_Stop_Res = 212,
+            Alarm_Clear_Req = 113,
+            Alarm_Clear_Res = 213,
+            Alarm_Status_Req = 114,
+            Alarm_Status_Res = 214,
+            KSP_Status_Req = 115,
+            KSP_Status_Res = 215,
+            Data_1_Req = 116,
+            Data_1_Res = 216,
+            Data_2_Req = 117,
+            Data_2_Res = 217,
+            Data_3_Req = 118,
+            Data_3_Res = 218,
+            Data_4_Req = 119,
+            Data_4_Res = 219,
+            Data_All_Req = 120,
+            Data_All_Res = 220,
+            Lamp_On_Off_Req = 121,
+            Lamp_On_Off_Res = 221,
+            //Lamp_On_Req = 118,
+            //Lamp_On_Res = 218,
+            //Lamp_Off_Req = 119,
+            //Lamp_Off_Res = 219,            
+            Lamp_Status_Req = 122,
+            Lamp_Status_Res = 222,
+            Lamp_Use_Time_Req = 123,
+            Lamp_Use_Time_Res = 223,
+            Mode_Change_Req = 124,
+            Mode_Change_Res = 224,
+            Mode_Status_Req = 125, 
+            Mode_Status_Res = 225,
+            
+            
+            Alarm_Occurred_Post = 101
+        }
+
+        public enum Payload
+        {
+            Lamp_Contorl_On = 1,
+            Lamp_Control_Off = 0,
+            Mode_Change_Auto = 1,
+            Mode_Change_Manual = 0
+        }
+        //Payload_Index byte array index
+        public enum Payload_Index
+        {
+            CommandNum = 17,
+            Gethering_Result = 18,
+            Alarm_Clear_Result = 18,
+            Alarm_Status = 18,
+            KSP_Status_Device = 18,
+            KSP_Status_Gathering = 19,
+            Data_Request_Data = 20,
+            Data_Request_Data_2 = 29,
+            Data_Request_Data_3 = 38,
+            Data_Request_Data_4 = 47,
+            Data_Request_Result = 28,
+
+            Data_1_Gathering_Status = 18,
+            Data_1_Separator = 19,
+            Data_1_Data = 20,
+            Data_1_Result = 28,
+
+            Data_2_Gathering_Status = 18,
+            Data_2_Separator = 19,
+            Data_2 = 20,
+            Data_2_Result = 28,
+
+            Data_3_Gathering_Status = 18,
+            Data_3_Separator = 19,
+            Data_3 = 20,
+            Data_3_Result = 28,
+
+            Data_4_Gathering_Status = 18,
+            Data_4_Separator = 19,
+            Data_4 = 20,
+            Data_4_Result = 28,
+
+            Data_All_Gathering_Status = 18,
+            Data_All_Separator_1 = 19,
+            Data_All_Separator_2 = 28,
+            Data_All_Separator_3 = 37,
+            Data_All_Separator_4 = 46,
+            Data_All = 20,
+            Data_All_Result = 28,
+
+            Lamp_On_Result = 18,
+            Lamp_Off_Result = 18,
+            Lamp_On_Off_Result = 18,
+            Laml_Control = 18,
+            Lamp_Status = 18,
+            Lamp_Use_Time = 18,
+
+            Mode_Change_Control = 18,
+            Mode_Change_Result = 18,
+
+            Mode_Status = 18,            
+            Alarm_Occurred_Status = 18
+
+        }
+        //Total bytes
+        public enum totalPacketNum
+        {
+            Gathering_Start_Req = 18,
+            Gathering_Start_Res = 18,
+            Gathering_Stop_Req = 18,
+            Gathering_Stop_Res = 18,
+            Alarm_Clear_Req = 18,
+            Alarm_Clear_Res = 19,
+            Alarm_Status_Req = 18,
+            Alarm_Status_Res = 19,
+            KSP_Status_Req = 18,
+            KSP_Status_Res = 20,
+            Data_1_Req = 18,
+            Data_1_Res = 29,
+            Data_2_Req = 18,
+            Data_2_Res = 29,
+            Data_3_Req = 18,
+            Data_3_Res = 29,
+            Data_4_Req = 18,
+            Data_4_Res = 29,
+            Data_All_Req = 18,
+            Data_All_Res = 56,
+            Lamp_On_Off_Req = 19,
+            Lamp_On_Off_Res = 19,
+            //Lamp_On_Req = 18,
+            //Lamp_On_Res = 19,
+            //Lamp_Off_Req = 18,
+            //Lamp_Off_Res = 19,
+            Lamp_Status_Req = 18,
+            Lamp_Status_Res = 19,
+            Lamp_Use_Time_Req = 18,
+            Lamp_Use_Time_Res = 23,
+            Mode_Change_Req = 19,
+            Mode_Change_Res = 19,
+            Mode_Status_Req = 18,
+            Mode_Status_Res = 19,
+            Alarm_Occurred_Post = 19
+
+        }
+
+        #region Message Event Handler
+        public delegate void SetLogHandler(string strMsg);
+        public static event SetLogHandler SetLogMsg;
+        public delegate void SetStatusHandler(string strMsg);
+        public static event SetStatusHandler SetStatusMsg;
+        #endregion
+
+        #region Client Socket variable
+        public Socket client, CallbackSocketC; // Client Socket  
+        public byte[] Client_SendData = new byte[1024]; // Client Send Buffer
+        public byte[] Client_ReceiveData = new byte[1024]; // Client Receive Buffer
+
+        #endregion
+
+        #region Host Socket variable
+        public byte[] Host_ReceiveData = new byte[1024]; // Host Receive Buffer
+        public byte[] Host_SendData = new byte[1024]; // Host Send Buffer
+        public Socket Host, CallbackSocketS; // Host Socket
+        public string Sip;
+        public int Sport;
+        #endregion
+
+        #region Command Structure Object
+        
+        public Struct.Gathering_Start_Req m_Gathering_Start_Req = new Struct.Gathering_Start_Req();
+        public Struct.Gathering_Start_Res m_Gathering_Start_Res = new Struct.Gathering_Start_Res();
+        public Struct.Gathering_Stop_Req m_Gathering_Stop_Req = new Struct.Gathering_Stop_Req();
+        public Struct.Gathering_Stop_Res m_Gathering_Stop_Res = new Struct.Gathering_Stop_Res();
+        public Struct.Alarm_Clear_Req m_Alarm_Clear_Req = new Struct.Alarm_Clear_Req();
+        public Struct.Alarm_Clear_Res m_Alarm_Clear_Res = new Struct.Alarm_Clear_Res();
+        public Struct.Alarm_Status_Req m_Alarm_Status_Req = new Struct.Alarm_Status_Req();
+        public Struct.Alarm_Status_Res m_Alarm_Status_Res = new Struct.Alarm_Status_Res();
+        public Struct.KSP_Status_Req m_KSP_Status_Req = new Struct.KSP_Status_Req();
+        public Struct.KSP_Status_Res m_KSP_Status_Res = new Struct.KSP_Status_Res();
+        public Struct.Data_1_Req m_Data_1_Req = new Struct.Data_1_Req();
+        public Struct.Data_1_Res m_Data_1_Res = new Struct.Data_1_Res();
+        public Struct.Data_2_Req m_Data_2_Req = new Struct.Data_2_Req();
+        public Struct.Data_2_Res m_Data_2_Res = new Struct.Data_2_Res();
+        public Struct.Data_3_Req m_Data_3_Req = new Struct.Data_3_Req();
+        public Struct.Data_3_Res m_Data_3_Res = new Struct.Data_3_Res();
+        public Struct.Data_4_Req m_Data_4_Req = new Struct.Data_4_Req();
+        public Struct.Data_4_Res m_Data_4_Res = new Struct.Data_4_Res();
+        public Struct.Data_All_Req m_Data_All_Req = new Struct.Data_All_Req();
+        public Struct.Data_All_Res m_Data_All_Res = new Struct.Data_All_Res();
+        public Struct.Lamp_On_Off_Req m_Lamp_On_Off_Req = new Struct.Lamp_On_Off_Req();
+        public Struct.Lamp_On_Off_Res m_Lamp_On_Off_Res = new Struct.Lamp_On_Off_Res();
+        public Struct.Lamp_On_Req m_Lamp_On_Req = new Struct.Lamp_On_Req();
+        public Struct.Lamp_On_Res m_Lamp_On_Res = new Struct.Lamp_On_Res();
+        public Struct.Lamp_Off_Req m_Lamp_Off_Req = new Struct.Lamp_Off_Req();
+        public Struct.Lamp_Off_Res m_Lamp_Off_Res = new Struct.Lamp_Off_Res();
+        public Struct.Lamp_Status_Req m_Lamp_Status_Req = new Struct.Lamp_Status_Req();
+        public Struct.Lamp_Status_Res m_Lamp_Status_Res = new Struct.Lamp_Status_Res();
+        public Struct.Lamp_Use_Time_Req m_Lamp_Use_Time_Req = new Struct.Lamp_Use_Time_Req();
+        public Struct.Lamp_Use_Time_Res m_Lamp_Use_Time_Res = new Struct.Lamp_Use_Time_Res();
+        public Struct.Mode_Change_Res m_Mode_Change_Res = new Struct.Mode_Change_Res();
+        public Struct.Mode_Change_Req m_Mode_Change_Req = new Struct.Mode_Change_Req();
+        public Struct.Mode_Status_Res m_Mode_Status_Res = new Struct.Mode_Status_Res();
+        public Struct.Mode_Status_Req m_Mode_Status_Req = new Struct.Mode_Status_Req();
+        public Struct.Alarm_Occurred_Post m_Alarm_Occurred_Post = new Struct.Alarm_Occurred_Post();
+        #endregion
+
+        public SocketClass(MDIMainFrm FormObj)
+        {
+            m_MDIMainFrm = FormObj;
+        }
+
+        #region Host Socket Function
+        //Host Socket Open
+        public void Listen_Host(string Host_ip, string Host_port)
+        {
+            try
+            {
+                IPAddress ipaddress = IPAddress.Parse(Host_ip);
+                IPEndPoint endPoint = new IPEndPoint(ipaddress, int.Parse(Host_port));
+
+                Host = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                Host.Bind(endPoint);
+                Host.Listen(10);
+                Host.BeginAccept(new AsyncCallback(AcceptConn_Host), Host);
+                Log("Waiting for client request.");        
+            }
+            catch(Exception ex)
+            {                
+                Log("The Host is already open.");
+                m_MDIMainFrm.bt_Connection.Text = "Connect";                
+            }
+        }
+        
+        //Client Access to Host
+        private void AcceptConn_Host(IAsyncResult iar)
+        {
+            try 
+            {
+                Socket _Host = (Socket)iar.AsyncState;
+                CallbackSocketS = _Host.EndAccept(iar);
+     
+                Log("Client connected.");
+                CallbackSocketS.BeginReceive(Host_ReceiveData, 0, Host_ReceiveData.Length, SocketFlags.None, new AsyncCallback(ReceiveData_Host), CallbackSocketS);        
+            }
+            catch (Exception ex)
+            {
+                
+            }
+        }
+
+        //Send Data(Host -> Receive)
+        public void SendData_Host(IAsyncResult iar)
+        {
+            Socket _Host = (Socket)iar.AsyncState;
+            int sent = _Host.EndSend(iar);
+        }
+
+        //Receive Data(Client -> Host)
+        private void ReceiveData_Host(IAsyncResult iar)
+        {
+            
+            Socket _Host = (Socket)iar.AsyncState;
+
+            if (Host == null)
+            {
+                _Host = null;
+            }
+            try
+            {
+                int recvSize = _Host.EndReceive(iar);
+
+                if (recvSize == 0)
+                {
+                    client.Close();
+                    Log("Waiting for client request.");
+                    Host.BeginAccept(new AsyncCallback(AcceptConn_Host), Host);
+                    return;
+                }
+           
+                if (m_MDIMainFrm.InvokeRequired)
+                {
+                    m_MDIMainFrm.Invoke(new MethodInvoker(delegate
+                    {
+                        //Receive
+                        _Host.BeginReceive(Host_ReceiveData, 0, Host_ReceiveData.Length, SocketFlags.None, new AsyncCallback(ReceiveData_Host), _Host);
+                        ClientToHost_Receive_Parsing(Host_ReceiveData);
+
+                        //Response
+                        CallbackSocketS.BeginSend(Host_SendData, 0, Host_SendData.Length, SocketFlags.None, new AsyncCallback(SendData_Host), CallbackSocketS);
+                        HostToClient_Send_Message();
+                    }));
+                }
+                else
+                {
+                    string recvData = Encoding.UTF8.GetString(Host_ReceiveData, 0, recvSize);
+                    _Host.BeginReceive(Host_ReceiveData, 0, Host_ReceiveData.Length, SocketFlags.None, new AsyncCallback(ReceiveData_Host), _Host);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_Host != null)
+                {
+                    _Host.Close();
+                    Log("Client disconnected.");
+                    Log("Waiting for client request.");
+                    Host.BeginAccept(new AsyncCallback(AcceptConn_Host), Host);
+                }
+            }
+        }
+        #endregion
+        
+        #region Client Socket Function
+        //Client Socket Open
+        public void Connection_Client(string Clinet_ip, string Clinet_port)
+        {
+            //Connect host
+            IPAddress ipaddress = IPAddress.Parse(Clinet_ip);
+            IPEndPoint endPoint = new IPEndPoint(ipaddress, int.Parse(Clinet_port));
+
+            //Create connection socket
+            client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            //Connect
+            Log("Trying to connect to the host...");
+            client.BeginConnect(endPoint, new AsyncCallback(Connected_Client), client);
+
+        }
+        
+        //Client connects to Host
+        private void Connected_Client(IAsyncResult iar)
+         {
+            CallbackSocketC = (Socket)iar.AsyncState;
+
+            try
+            {
+                CallbackSocketC.EndConnect(iar);
+                CallbackSocketC.BeginReceive(Client_ReceiveData, 0, Client_ReceiveData.Length, SocketFlags.None, new AsyncCallback(ReceiveData_Client), CallbackSocketC);
+                Log("Connected to host.");                
+            }
+            catch (SocketException ex)
+            {
+                Log("Host Connection Failed");
+                client.Close();
+                client = null;
+            }
+        }
+
+        //Receive Data(Host -> Client)
+        private void ReceiveData_Client(IAsyncResult iar)
+        {
+           
+            CallbackSocketC = (Socket)iar.AsyncState;
+
+            try
+            {
+                int recv = CallbackSocketC.EndReceive(iar);
+                if (recv == 0) return;
+
+                HostToClient_Receive_Parsing(Client_ReceiveData, recv);
+
+                CallbackSocketC.BeginReceive(Client_ReceiveData, 0, Client_ReceiveData.Length, SocketFlags.None, new AsyncCallback(ReceiveData_Client), CallbackSocketC);
+            }
+            catch (Exception e)
+            {             
+                CallbackSocketC.Close();;
+                if (e.HResult == -2147467259)
+                    Log("Force Host Shutdown.");
+            }
+        }
+        
+        //Send Data(Client -> Host)
+        public void SendData_Client(IAsyncResult iar)
+        {
+            Socket remote = (Socket)iar.AsyncState;
+            CallbackSocketC = remote;
+            int sent = CallbackSocketC.EndSend(iar);
+            
+        }
+        #endregion
+        
+        //Conversion of byte to string
+        public string ByteToString(byte[] strByte)
+        {
+            string str = Encoding.Default.GetString(strByte);
+            return str;
+        }
+
+        //Conversion of string to byte
+        public byte[] StringToByte(string str)
+        {
+            byte[] StrByte = Encoding.UTF8.GetBytes(str);
+
+            return StrByte;
+        }
+
+        //Adds a byte value to a sending byte array.
+        public byte[] addByteToArray_byte(byte[] bArray, byte newByte, int totalbyte, byte command)
+        {
+            byte[] newArray = new byte[bArray.Length + 1];
+            bArray.CopyTo(newArray, 0);
+            
+            newArray[command] = newByte;
+
+            return newArray;
+        }
+
+        //Adds a string value to a sending byte array.
+        public byte[] addByteToArray_string(byte[] bArray, string newByte, int totalbyte, byte command)
+        {
+            byte[] StrByte = Encoding.UTF8.GetBytes(newByte);
+            byte[] newArray = new byte[bArray.Length + StrByte.Length];
+            bArray.CopyTo(newArray, 0);
+
+            for(int i = 0; i< StrByte.Length; i++)
+                newArray[i + command] = StrByte[i];
+
+            return newArray;
+        }
+
+        //Adds a double value to a sending byte array.        
+        public byte[] addByteToArray_double(byte[] bArray, double newByte, int totalbyte, byte command)
+        {
+            byte[] StrByte = BitConverter.GetBytes(newByte);
+
+            byte[] newArray = new byte[bArray.Length + StrByte.Length];
+            bArray.CopyTo(newArray, 0);
+
+            for (int i = 0; i < StrByte.Length; i++)
+                newArray[i + command] = StrByte[i];
+
+            return newArray;
+        }
+
+        //Conversion of byte array to structure
+        public static T ByteToStruct<T>(byte[] data) where T : struct
+        {
+            T obj = default(T);            
+            try
+            {
+                int size = Marshal.SizeOf(typeof(T));
+
+                if (size > data.Length)
+                {
+                    throw new Exception();
+                }
+
+                IntPtr ptr = Marshal.AllocHGlobal(size);
+                Marshal.Copy(data, 0, ptr, size);
+                obj = (T)Marshal.PtrToStructure(ptr, typeof(T));
+                Marshal.FreeHGlobal(ptr);             
+            }
+            catch (Exception ex){}
+            return obj;
+        }
+        
+        public static object ByteToStructure(byte[] data, Type type)
+        {
+
+            IntPtr buff = Marshal.AllocHGlobal(data.Length); // 배열의 크기만큼 비관리 메모리 영역에 메모리를 할당한다.
+            Marshal.Copy(data, 0, buff, data.Length); // 배열에 저장된 데이터를 위에서 할당한 메모리 영역에 복사한다.
+            object obj = Marshal.PtrToStructure(buff, type); // 복사된 데이터를 구조체 객체로 변환한다.
+            Marshal.FreeHGlobal(buff); // 비관리 메모리 영역에 할당했던 메모리를 해제함
+
+            if (Marshal.SizeOf(obj) != data.Length)// (((PACKET_DATA)obj).TotalBytes != data.Length) // 구조체와 원래의 데이터의 크기 비교
+            {
+                return null; // 크기가 다르면 null 리턴
+            }
+
+            return obj; // 구조체 리턴
+        }
+        //Conversion of structure to byte array
+        public static byte[] StructureToByte(object obj)
+        {
+            int datasize = Marshal.SizeOf(obj);
+            IntPtr buff = Marshal.AllocHGlobal(datasize); 
+            Marshal.StructureToPtr(obj, buff, true); 
+            byte[] data = new byte[datasize]; 
+            Marshal.Copy(buff, data, 0, datasize); 
+            Marshal.FreeHGlobal(buff); 
+
+            return data; 
+        }
+
+        //Stores the responded data from the host into the structure(Host -> Client) and print out Log and Status Message                                       
+        public void HostToClient_Receive_Parsing(byte[] buffer, int PacketSize)
+        {
+            byte[] bytePacket = new byte[PacketSize];
+            Buffer.BlockCopy(buffer, 0, bytePacket, 0, PacketSize);
+            switch (bytePacket[(byte)Payload_Index.CommandNum])
+            {
+                case (byte)Command.Gathering_Start_Res:
+                    m_Gathering_Start_Res = ByteToStruct<Struct.Gathering_Start_Res>(bytePacket); 
+                    string Byte = Encoding.ASCII.GetBytes(m_Gathering_Start_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Gathering_Start_Res(Receive)");
+                    StatusMsg("[Client:IN] Gathering_Start_Res,\r\n Byte[] : " + Byte + " " + m_Gathering_Start_Res.Command + " " + m_Gathering_Start_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Gathering_Start_Res.Command + " ] Result[" + m_Gathering_Start_Res.Result + "]");
+                    break;
+                case (byte)Command.Gathering_Stop_Res:
+                    m_Gathering_Stop_Res = ByteToStruct<Struct.Gathering_Stop_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Gathering_Stop_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Gathering_Stop_Res(Receive)");
+                    StatusMsg("[Client:IN] Gathering_Stop_Res,\r\n Byte[] : " + Byte + " " + m_Gathering_Stop_Res.Command + " " + m_Gathering_Stop_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Gathering_Stop_Res.Command + " ] Result[" + m_Gathering_Stop_Res.Result + "]");
+                    break;                                  
+                case (byte)Command.Alarm_Clear_Res:
+                    m_Alarm_Clear_Res = ByteToStruct<Struct.Alarm_Clear_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Alarm_Clear_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Alarm_Clear_Res(Receive)");
+                    StatusMsg("[Client:IN] Alarm_Clear_Res,\r\n Byte[] : " + Byte + " " + m_Alarm_Clear_Res.Command + " " + m_Alarm_Clear_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Alarm_Clear_Res.Command + "] Result[" + m_Alarm_Clear_Res.Result + "]");
+                    break;
+                case (byte)Command.Alarm_Status_Res:
+                    m_Alarm_Status_Res = ByteToStruct<Struct.Alarm_Status_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Alarm_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Alarm_Status_Res(Receive)");
+                    StatusMsg("[Client:IN] Alarm_Status_Res,\r\n Byte[] : " + Byte + " " + m_Alarm_Status_Res.Command + " " + m_Alarm_Status_Res.Alarm_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Alarm_Status_Res.Command + "] Result[" + m_Alarm_Status_Res.Alarm_Status + "]");
+                    break;
+                case (byte)Command.KSP_Status_Res:
+                    m_KSP_Status_Res = ByteToStruct<Struct.KSP_Status_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_KSP_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("KSP_Status_Res(Receive)");
+                    StatusMsg("[Client:IN] KSP_Status_Res,\r\n Byte[] : " + Byte + " " + m_KSP_Status_Res.Command + " " + m_KSP_Status_Res.Device_Status + " " + m_KSP_Status_Res.Gathering_Status + "\r\n DateTime[" + Byte + "] Command[" + m_KSP_Status_Res.Command + "] Device_Status[" + m_KSP_Status_Res.Device_Status + "] Gathering_Status[" + m_KSP_Status_Res.Device_Status + "]");
+                    break;
+                case (byte)Command.Data_1_Res:
+                    m_Data_1_Res = ByteToStruct<Struct.Data_1_Res>(bytePacket);
+                    //m_Data_1_Res = ByteToStructure(data, Struct.Data_1_Res);
+                    
+                    Byte = Encoding.ASCII.GetBytes(m_Data_1_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Data_1_Res(Receive)");
+                    StatusMsg("[Client:IN] Data_1_Res,\r\n Byte[] : " + Byte + " " + m_Data_1_Res.Command + " " + m_Data_1_Res.Gathering_Status + " " + m_Data_1_Res.Separator + " " + m_Data_1_Res.Data_1 + " " + m_Data_1_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_1_Res.Command + "] Device_Status[" + m_Data_1_Res.Gathering_Status + "] Separator[" + m_Data_1_Res.Separator + "] Data_1[" + m_Data_1_Res.Data_1 + "] Result[" + m_Data_1_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_2_Res:
+                    m_Data_2_Res = ByteToStruct<Struct.Data_2_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Data_2_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Data_2_Res(Receive)");
+                    StatusMsg("[Client:IN] Data_2_Res,\r\n Byte[] : " + Byte + " " + m_Data_2_Res.Command + " " + m_Data_2_Res.Gathering_Status + " " + m_Data_2_Res.Separator + " " + m_Data_2_Res.Data_2 + " " + m_Data_2_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_2_Res.Command + "] Device_Status[" + m_Data_2_Res.Gathering_Status + "] Separator[" + m_Data_2_Res.Separator + "] Data_2[" + m_Data_2_Res.Data_2 + "] Result[" + m_Data_2_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_3_Res:
+                    m_Data_3_Res = ByteToStruct<Struct.Data_3_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Data_3_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    
+                    Log("Data_3_Res(Receive)");
+                    StatusMsg("[Client:IN] Data_3_Res,\r\n Byte[] : " + Byte + " " + m_Data_3_Res.Command + " " + m_Data_3_Res.Gathering_Status + " " + m_Data_3_Res.Separator + " " + m_Data_3_Res.Data_3 + " " + m_Data_3_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_3_Res.Command + "] Device_Status[" + m_Data_3_Res.Gathering_Status + "] Separator[" + m_Data_3_Res.Separator + "] Data_3[" + m_Data_3_Res.Data_3 + "] Result[" + m_Data_3_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_4_Res:
+                    m_Data_4_Res = ByteToStruct<Struct.Data_4_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Data_4_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Data_4_Res(Receive)");
+                    StatusMsg("[Client:IN] Data_4_Res,\r\n Byte[] : " + Byte + " " + m_Data_4_Res.Command + " " + m_Data_4_Res.Gathering_Status + " " + m_Data_4_Res.Separator + " " + m_Data_4_Res.Data_4 + " " + m_Data_4_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_4_Res.Command + "] Device_Status[" + m_Data_4_Res.Gathering_Status + "] Separator[" + m_Data_4_Res.Separator + "] Data_4[" + m_Data_4_Res.Data_4 + "] Result[" + m_Data_4_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_All_Res:
+                    m_Data_All_Res = ByteToStruct<Struct.Data_All_Res>(bytePacket);
+                    Byte = string.Join("", m_Data_All_Res.TimeC);
+                    //Byte = Encoding.ASCII.GetBytes(m_Data_All_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Data_All_Res(Receive)");
+                    StatusMsg("[Client:IN] *** Data_ALL_Res ########### Byte[] ########## \r\n " + string.Join(" ", bytePacket));
+                    StatusMsg("[Client:IN] *** Data_All_Res ########### Encoding ########## \r\n  : " + Byte +" "+ m_Data_All_Res.Command + " " + m_Data_All_Res.Gathering_Status + " " + m_Data_All_Res.Separator + " " + m_Data_All_Res.Data_1 + " " + m_Data_All_Res.Separator1 + " " + m_Data_All_Res.Data_2 + " " + m_Data_All_Res.Separator2 + " " + m_Data_All_Res.Data_3 + " " + m_Data_All_Res.Separator3 + " " + m_Data_All_Res.Data_4 + m_Data_All_Res.Result);
+                    StatusMsg("[Client:IN] *** Data_All_Res ########### Description ########## \r\n  : " + "DateTime[" + Byte + "] Command[" + m_Data_All_Res.Command + "] Device_Status[" + m_Data_All_Res.Gathering_Status + "Result[" + m_Data_All_Res.Result + "]");
+                    StatusMsg("Data_1 : " + m_Data_All_Res.Data_1 + Environment.NewLine + "Data_2 : " + m_Data_All_Res.Data_2 + Environment.NewLine + "Data_3 :" + m_Data_All_Res.Data_3 + Environment.NewLine + "Data_4 : " + m_Data_All_Res.Data_4);
+                    break;
+                case (byte)Command.Lamp_On_Off_Res:
+                    m_Lamp_On_Off_Res = ByteToStruct<Struct.Lamp_On_Off_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_On_Off_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Lamp_On_Off_Res(Receive)");
+                    StatusMsg("[Client:IN] Lamp_On_Off_Res,\r\n Byte[] : " + Byte + " " + m_Lamp_On_Off_Res.Command + " " + m_Lamp_On_Off_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_On_Off_Res.Command + "] Result[" + m_Lamp_On_Off_Res.Result + "]");
+                    break;                    
+                case (byte)Command.Lamp_Status_Res:
+                    m_Lamp_Status_Res = ByteToStruct<Struct.Lamp_Status_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Lamp_Status_Res(Receive)");
+                    StatusMsg("[Client:IN] Lamp_Status_Res,\r\n Byte[] : " + Byte + " " + m_Lamp_Status_Res.Command + " " + m_Lamp_Status_Res.Lamp_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_Status_Res.Command + "] Lamp_Status[" + m_Lamp_Status_Res.Lamp_Status + "]");
+                    break;
+                case (byte)Command.Lamp_Use_Time_Res:
+                    m_Lamp_Use_Time_Res = ByteToStruct<Struct.Lamp_Use_Time_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_Use_Time_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Lamp_Use_Time_Res(Receive)");
+                    StatusMsg("[Client:IN] Lamp_Use_Time_Res,\r\n Byte[] : " + Byte + " " + m_Lamp_Use_Time_Res.Command + " " + m_Lamp_Use_Time_Res.Lamp_Use_Time + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_Use_Time_Res.Command + "] Lamp_Use_Time[" + m_Lamp_Use_Time_Res.Lamp_Use_Time + "]");
+                    break;
+                case (byte)Command.Mode_Change_Res:
+                    m_Mode_Change_Res = ByteToStruct<Struct.Mode_Change_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Mode_Change_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Mode_Change_Res(Receive)");
+                    StatusMsg("[Client:IN] Mode_Change_Res,\r\n Byte[] : " + Byte + " " + m_Mode_Change_Res.Command + " " + m_Mode_Change_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Mode_Change_Res.Command + "] Result[" + m_Mode_Change_Res.Result + "]");
+                    break;
+                case (byte)Command.Mode_Status_Res:
+                    m_Mode_Status_Res = ByteToStruct<Struct.Mode_Status_Res>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Mode_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Mode_Status_Res(Receive)");
+                    StatusMsg("[Client:IN] Mode_Status_Res,\r\n Byte[] : " + Byte + " " + m_Mode_Status_Res.Command + " " + m_Mode_Status_Res.Mode_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Mode_Status_Res.Command + "] Mode_Status[" + m_Mode_Status_Res.Mode_Status + "]");
+                    break;
+                case (byte)Command.Alarm_Occurred_Post:
+                    m_Alarm_Occurred_Post = ByteToStruct<Struct.Alarm_Occurred_Post>(bytePacket);
+                    Byte = Encoding.ASCII.GetBytes(m_Alarm_Occurred_Post.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    Log("Alarm_Occurred_Post(Receive)");
+                    StatusMsg("[Client:IN] Alarm_Occurred_Post,\r\n Byte[] : " + Byte + " " + m_Alarm_Occurred_Post.Command + " " + m_Alarm_Occurred_Post.Alarm_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Alarm_Occurred_Post.Command + "] Alarm_Status[" + m_Alarm_Occurred_Post.Alarm_Status + "]");
+                    break;                  
+            }              
+        }
+
+        //Stores the requested data from client into the host structure(Client -> Host) and add the response data in the byte array 
+        public void ClientToHost_Receive_Parsing(byte[] data)
+        {
+            switch (Host_ReceiveData[(byte)Payload_Index.CommandNum])
+            {
+                case (byte)Command.Gathering_Start_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Gathering_Start_Req = ByteToStruct<Struct.Gathering_Start_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Gathering_Start_Req(Receive)");
+                    string Byte = Encoding.ASCII.GetBytes(m_Gathering_Start_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Gathering_Start_Req,\r\n Byte[] : " + Byte + " " + m_Gathering_Start_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Gathering_Start_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Gathering_Start_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Gathering_Start_Res.Command = (byte)Command.Gathering_Start_Res;
+                    m_Gathering_Start_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructStart_Req = StringToByte(m_Gathering_Start_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructStart_Req = addByteToArray_byte(StructStart_Req, m_Gathering_Start_Res.Command, (byte)SocketClass.totalPacketNum.Gathering_Start_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Result) to a sending byte array
+                    StructStart_Req = addByteToArray_byte(StructStart_Req, m_Gathering_Start_Res.Result, (byte)SocketClass.totalPacketNum.Gathering_Start_Res, (byte)SocketClass.Payload_Index.Gethering_Result);
+
+                    Host_SendData = StructStart_Req;
+                    //Host_SendData = StructureToByte(m_Gathering_Start_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Gathering_Stop_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Gathering_Stop_Req = ByteToStruct<Struct.Gathering_Stop_Req>(data);
+                    
+                    //Print out Log and Status Message.
+                    Log("Gathering_Stop_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Gathering_Stop_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Gathering_Stop_Req,\r\n Byte[] : " + Byte + " " + m_Gathering_Stop_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Gathering_Stop_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Gathering_Stop_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Gathering_Stop_Res.Command = (byte)Command.Gathering_Stop_Res;
+                    m_Gathering_Stop_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructStop_Res = StringToByte(m_Gathering_Stop_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructStop_Res = addByteToArray_byte(StructStop_Res, m_Gathering_Stop_Res.Command, (byte)SocketClass.totalPacketNum.Gathering_Stop_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Result) to a sending byte array
+                    StructStop_Res = addByteToArray_byte(StructStop_Res, m_Gathering_Stop_Res.Result, (byte)SocketClass.totalPacketNum.Gathering_Stop_Res, (byte)SocketClass.Payload_Index.Gethering_Result);
+
+                    Host_SendData = StructStop_Res;
+                    //Host_SendData = StructureToByte(m_Gathering_Stop_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Alarm_Clear_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Alarm_Clear_Req = ByteToStruct<Struct.Alarm_Clear_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Alarm_Clear_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Alarm_Clear_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Alarm_Clear_Req,\r\n Byte[] : " + Byte + " " + m_Alarm_Clear_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Alarm_Clear_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Alarm_Clear_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Alarm_Clear_Res.Command = (byte)Command.Alarm_Clear_Res;
+                    m_Alarm_Clear_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructAlarmClear_Res = StringToByte(m_Alarm_Clear_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructAlarmClear_Res = addByteToArray_byte(StructAlarmClear_Res, m_Alarm_Clear_Res.Command, (byte)SocketClass.totalPacketNum.Alarm_Clear_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Result) to a sending byte array
+                    StructAlarmClear_Res = addByteToArray_byte(StructAlarmClear_Res, m_Alarm_Clear_Res.Result, (byte)SocketClass.totalPacketNum.Alarm_Clear_Res, (byte)SocketClass.Payload_Index.Alarm_Clear_Result);
+
+                    Host_SendData = StructAlarmClear_Res;
+                    //Host_SendData = StructureToByte(m_Alarm_Clear_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Alarm_Status_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Alarm_Status_Req = ByteToStruct<Struct.Alarm_Status_Req>(data);
+                    
+                    //Print out Log and Status Message.
+                    Log("Alarm_Status_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Alarm_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Alarm_Status_Req,\r\n Byte[] : " + Byte + " " + m_Alarm_Status_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Alarm_Status_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Alarm_Status_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Alarm_Status_Res.Command = (byte)Command.Alarm_Status_Res;
+                    m_Alarm_Status_Res.Alarm_Status = 0;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructAlarmStatus_Res = StringToByte(m_Alarm_Status_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructAlarmStatus_Res = addByteToArray_byte(StructAlarmStatus_Res, m_Alarm_Status_Res.Command, (byte)SocketClass.totalPacketNum.Alarm_Status_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Alarm_Status) to a sending byte array
+                    StructAlarmStatus_Res = addByteToArray_byte(StructAlarmStatus_Res, m_Alarm_Status_Res.Alarm_Status, (byte)SocketClass.totalPacketNum.Alarm_Status_Res, (byte)SocketClass.Payload_Index.Alarm_Status);
+
+                    Host_SendData = StructAlarmStatus_Res;
+                    //Host_SendData = StructureToByte(m_Alarm_Status_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.KSP_Status_Req:
+                    //Stores data sent from the client into the structure.
+                    m_KSP_Status_Req = ByteToStruct<Struct.KSP_Status_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("KSP_Status_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_KSP_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] KSP_Status_Req,\r\n Byte[] : " + Byte + " " + m_KSP_Status_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_KSP_Status_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_KSP_Status_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_KSP_Status_Res.Command = (byte)Command.KSP_Status_Res;
+                    m_KSP_Status_Res.Device_Status = 1;
+                    m_KSP_Status_Res.Gathering_Status = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructKSPStatus_Res = StringToByte(m_KSP_Status_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructKSPStatus_Res = addByteToArray_byte(StructKSPStatus_Res, m_KSP_Status_Res.Command, (byte)SocketClass.totalPacketNum.KSP_Status_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Device_Status) to a sending byte array
+                    StructKSPStatus_Res = addByteToArray_byte(StructKSPStatus_Res, m_KSP_Status_Res.Device_Status, (byte)SocketClass.totalPacketNum.KSP_Status_Res, (byte)SocketClass.Payload_Index.KSP_Status_Device);
+                    //Adds an Item(Gathering_Status) to a sending byte array
+                    StructKSPStatus_Res = addByteToArray_byte(StructKSPStatus_Res, m_KSP_Status_Res.Gathering_Status, (byte)SocketClass.totalPacketNum.KSP_Status_Res, (byte)SocketClass.Payload_Index.KSP_Status_Gathering);
+
+                    Host_SendData = StructKSPStatus_Res;
+                    //Host_SendData = StructureToByte(m_KSP_Status_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Data_1_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Data_1_Req = ByteToStruct<Struct.Data_1_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Data_1_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Data_1_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Data_1_Req,\r\n Byte[] : " + Byte + " " + m_Data_1_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Data_1_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Data_1_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Data_1_Res.Command = (byte)Command.Data_1_Res;
+                    m_Data_1_Res.Gathering_Status = 1;
+                    m_Data_1_Res.Separator = '|';
+                    m_Data_1_Res.Data_1 = 2323.111;
+                    m_Data_1_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData1_Res = StringToByte(m_Data_1_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData1_Res = addByteToArray_byte(StructData1_Res, m_Data_1_Res.Command, (byte)SocketClass.totalPacketNum.Data_1_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData1_Res = addByteToArray_byte(StructData1_Res, m_Data_1_Res.Gathering_Status, (byte)SocketClass.totalPacketNum.Data_1_Res, (byte)SocketClass.Payload_Index.Data_1_Gathering_Status);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData1_Res = addByteToArray_string(StructData1_Res, m_Data_1_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_1_Res, (byte)SocketClass.Payload_Index.Data_1_Separator);
+                    //Adds an Item(Data) to a sending byte array
+                    StructData1_Res = addByteToArray_double(StructData1_Res, m_Data_1_Res.Data_1, (byte)SocketClass.totalPacketNum.Data_1_Res, (byte)SocketClass.Payload_Index.Data_Request_Data);
+                    //Adds an Item(Result) to a sending byte array
+                    StructData1_Res = addByteToArray_byte(StructData1_Res, m_Data_1_Res.Result, (byte)SocketClass.totalPacketNum.Data_1_Res, (byte)SocketClass.Payload_Index.Data_Request_Result);
+
+                    Host_SendData = StructData1_Res;
+                    //Host_SendData = StructureToByte(m_Data_1_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Data_2_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Data_2_Req = ByteToStruct<Struct.Data_2_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Data_2_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Data_2_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Data_2_Req,\r\n Byte[] : " + Byte + " " + m_Data_2_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Data_2_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Data_2_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Data_2_Res.Command = (byte)Command.Data_2_Res;
+                    m_Data_2_Res.Gathering_Status = 1;
+                    m_Data_2_Res.Separator = '|';
+                    m_Data_2_Res.Data_2 = 2323.111;
+                    m_Data_2_Res.Result = 1;
+                     
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData2_Res = StringToByte(m_Data_2_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData2_Res = addByteToArray_byte(StructData2_Res, m_Data_2_Res.Command, (byte)SocketClass.totalPacketNum.Data_2_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData2_Res = addByteToArray_byte(StructData2_Res, m_Data_2_Res.Gathering_Status, (byte)SocketClass.totalPacketNum.Data_2_Res, (byte)SocketClass.Payload_Index.Data_2_Gathering_Status);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData2_Res = addByteToArray_string(StructData2_Res, m_Data_2_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_2_Res, (byte)SocketClass.Payload_Index.Data_2_Separator);
+                    //Adds an Item(Data) to a sending byte array
+                    StructData2_Res = addByteToArray_double(StructData2_Res, m_Data_2_Res.Data_2, (byte)SocketClass.totalPacketNum.Data_2_Res, (byte)SocketClass.Payload_Index.Data_Request_Data);
+                    //Adds an Item(Result) to a sending byte array
+                    StructData2_Res = addByteToArray_byte(StructData2_Res, m_Data_2_Res.Result, (byte)SocketClass.totalPacketNum.Data_2_Res, (byte)SocketClass.Payload_Index.Data_Request_Result);
+
+                    Host_SendData = StructData2_Res;
+                    //Host_SendData = StructureToByte(m_Data_2_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Data_3_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Data_3_Req = ByteToStruct<Struct.Data_3_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Data_3_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Data_3_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Data_3_Req,\r\n Byte[] : " + Byte + " " + m_Data_3_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Data_3_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Data_3_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Data_3_Res.Command = (byte)Command.Data_3_Res;
+                    m_Data_3_Res.Gathering_Status = 1;
+                    m_Data_3_Res.Separator = '|';
+                    m_Data_3_Res.Data_3 = 2323.111;
+                    m_Data_3_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData3_Res = StringToByte(m_Data_3_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData3_Res = addByteToArray_byte(StructData3_Res, m_Data_3_Res.Command, (byte)SocketClass.totalPacketNum.Data_3_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData3_Res = addByteToArray_byte(StructData3_Res, m_Data_3_Res.Gathering_Status, (byte)SocketClass.totalPacketNum.Data_3_Res, (byte)SocketClass.Payload_Index.Data_3_Gathering_Status);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData3_Res = addByteToArray_string(StructData3_Res, m_Data_3_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_3_Res, (byte)SocketClass.Payload_Index.Data_3_Separator);
+                    //Adds an Item(Data) to a sending byte array
+                    StructData3_Res = addByteToArray_double(StructData3_Res, m_Data_3_Res.Data_3, (byte)SocketClass.totalPacketNum.Data_3_Res, (byte)SocketClass.Payload_Index.Data_Request_Data);
+                    //Adds an Item(Result) to a sending byte array
+                    StructData3_Res = addByteToArray_byte(StructData3_Res, m_Data_3_Res.Result, (byte)SocketClass.totalPacketNum.Data_3_Res, (byte)SocketClass.Payload_Index.Data_Request_Result);
+
+                    Host_SendData = StructData3_Res;
+                    //Host_SendData = StructureToByte(m_Data_2_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Data_4_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Data_4_Req = ByteToStruct<Struct.Data_4_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Data_4_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Data_4_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Data_4_Req,\r\n Byte[] : " + Byte + " " + m_Data_4_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Data_4_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Data_4_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Data_4_Res.Command = (byte)Command.Data_4_Res;
+                    m_Data_4_Res.Gathering_Status = 1;
+                    m_Data_4_Res.Separator = '|';
+                    m_Data_4_Res.Data_4 = 2323.111;
+                    m_Data_4_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData4_Res = StringToByte(m_Data_4_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData4_Res = addByteToArray_byte(StructData4_Res, m_Data_4_Res.Command, (byte)SocketClass.totalPacketNum.Data_4_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData4_Res = addByteToArray_byte(StructData4_Res, m_Data_4_Res.Gathering_Status, (byte)SocketClass.totalPacketNum.Data_4_Res, (byte)SocketClass.Payload_Index.Data_4_Gathering_Status);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData4_Res = addByteToArray_string(StructData4_Res, m_Data_4_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_4_Res, (byte)SocketClass.Payload_Index.Data_4_Separator);
+                    //Adds an Item(Data) to a sending byte array
+                    StructData4_Res = addByteToArray_double(StructData4_Res, m_Data_4_Res.Data_4, (byte)SocketClass.totalPacketNum.Data_4_Res, (byte)SocketClass.Payload_Index.Data_Request_Data);
+                    //Adds an Item(Result) to a sending byte array
+                    StructData4_Res = addByteToArray_byte(StructData4_Res, m_Data_4_Res.Result, (byte)SocketClass.totalPacketNum.Data_4_Res, (byte)SocketClass.Payload_Index.Data_Request_Result);
+
+                    Host_SendData = StructData4_Res;
+                    //Host_SendData = StructureToByte(m_Data_2_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Data_All_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Data_All_Req = ByteToStruct<Struct.Data_All_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Data_All_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Data_All_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Data_All_Req,\r\n Byte[] : " + Byte + " " + m_Data_All_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Data_All_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Data_All_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Data_All_Res.Command = (byte)Command.Data_All_Res;
+                    m_Data_All_Res.Gathering_Status = 1;
+                    m_Data_All_Res.Separator = '|';
+                    m_Data_All_Res.Data_1 = 2323.111;
+                    m_Data_All_Res.Separator = '|';
+                    m_Data_All_Res.Data_2 = 2323.111;
+                    m_Data_All_Res.Separator = '|';
+                    m_Data_All_Res.Data_3 = 2323.111;
+                    m_Data_All_Res.Separator = '|';
+                    m_Data_All_Res.Data_4 = 2323.111;
+                    m_Data_All_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructDataAll_Res = StringToByte(m_Data_All_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructDataAll_Res = addByteToArray_byte(StructDataAll_Res, m_Data_All_Res.Command, (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Command) to a sending byte array
+                    StructDataAll_Res = addByteToArray_byte(StructDataAll_Res, m_Data_All_Res.Gathering_Status, (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_All_Gathering_Status);
+                    //Adds an Item(Command) to a sending byte array
+                    StructDataAll_Res = addByteToArray_string(StructDataAll_Res, m_Data_All_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_All_Separator_1);
+                    //Adds an Item(Data) to a sending byte array
+                    StructDataAll_Res = addByteToArray_double(StructDataAll_Res, m_Data_All_Res.Data_1, (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_Request_Data);
+                    //Adds an Item(Command) to a sending byte array
+                    StructDataAll_Res = addByteToArray_string(StructDataAll_Res, m_Data_All_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_All_Separator_2);
+                    //Adds an Item(Data) to a sending byte array
+                    StructDataAll_Res = addByteToArray_double(StructDataAll_Res, m_Data_All_Res.Data_2, (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_Request_Data_2);
+                    //Adds an Item(Command) to a sending byte array
+                    StructDataAll_Res = addByteToArray_string(StructDataAll_Res, m_Data_All_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_All_Separator_3);
+                    //Adds an Item(Data) to a sending byte array
+                    StructDataAll_Res = addByteToArray_double(StructDataAll_Res, m_Data_All_Res.Data_3, (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_Request_Data_3);
+                    //Adds an Item(Command) to a sending byte array
+                    StructDataAll_Res = addByteToArray_string(StructDataAll_Res, m_Data_All_Res.Separator.ToString(), (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_All_Separator_4);
+                    //Adds an Item(Data) to a sending byte array
+                    StructDataAll_Res = addByteToArray_double(StructDataAll_Res, m_Data_All_Res.Data_4, (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_Request_Data_4);
+                    //Adds an Item(Result) to a sending byte array
+                    StructDataAll_Res = addByteToArray_byte(StructDataAll_Res, m_Data_All_Res.Result, (byte)SocketClass.totalPacketNum.Data_All_Res, (byte)SocketClass.Payload_Index.Data_Request_Result);
+
+                    Host_SendData = StructDataAll_Res;
+                    //Host_SendData = StructureToByte(m_Data_2_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Lamp_On_Off_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Lamp_On_Off_Req = ByteToStruct<Struct.Lamp_On_Off_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Lamp_On_Off_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_On_Off_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Lamp_On_Off_Req,\r\n Byte[] : " + Byte + " " + m_Lamp_On_Off_Req.Command + " " + m_Lamp_On_Off_Req.Lamp_Control + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_On_Off_Req.Command + "] Lamp_Control[" + m_Lamp_On_Off_Req.Lamp_Control +"]");
+
+                    //Input a value for the structure variables.
+                    m_Lamp_On_Off_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Lamp_On_Off_Res.Command = (byte)Command.Lamp_On_Off_Res;
+                    m_Lamp_On_Off_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructLampOnOff_Res = StringToByte(m_Lamp_On_Off_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructLampOnOff_Res = addByteToArray_byte(StructLampOnOff_Res, m_Lamp_On_Off_Res.Command, (byte)SocketClass.totalPacketNum.Lamp_On_Off_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Result) to a sending byte array
+                    StructLampOnOff_Res = addByteToArray_byte(StructLampOnOff_Res, m_Lamp_On_Off_Res.Result, (byte)SocketClass.totalPacketNum.Lamp_On_Off_Res, (byte)SocketClass.Payload_Index.Lamp_On_Off_Result);
+
+                    Host_SendData = StructLampOnOff_Res;
+                    //Host_SendData = StructureToByte(m_Lamp_On_Res); <- when use Struct to byte fucntion
+                    break;
+                #region
+                //case (byte)Command.Lamp_On_Req:
+                //    //Stores data sent from the client into the structure.
+                //    m_Lamp_On_Req = ByteToStruct<Struct.Lamp_On_Req>(data);
+                    
+                //    //Print out Log and Status Message.
+                //    Log("Lamp_On_Req(Receive)");
+                //    Byte = Encoding.ASCII.GetBytes(m_Lamp_On_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                //    StatusMsg("[Host:IN] Lamp_On_Req,\r\n Byte[] : " + Byte + " " + m_Lamp_On_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_On_Req.Command + "]");
+
+                //    //Input a value for the structure variables.
+                //    m_Lamp_On_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                //    m_Lamp_On_Res.Command = (byte)Command.Lamp_On_Res;
+                //    m_Lamp_On_Res.Result = 1;
+
+                //    //Adds an Item(DataTime) to a sending byte array
+                //    byte[] StructLampOn_Res = StringToByte(m_Lamp_On_Res.DataTime);
+                //    //Adds an Item(Command) to a sending byte array
+                //    StructLampOn_Res = addByteToArray_byte(StructLampOn_Res, m_Lamp_On_Res.Command, (byte)SocketClass.totalPacketNum.Lamp_On_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                //    //Adds an Item(Result) to a sending byte array
+                //    StructLampOn_Res = addByteToArray_byte(StructLampOn_Res, m_Lamp_On_Res.Result, (byte)SocketClass.totalPacketNum.Lamp_On_Res, (byte)SocketClass.Payload_Index.Lamp_On_Result);
+
+                //    Host_SendData = StructLampOn_Res;
+                //    //Host_SendData = StructureToByte(m_Lamp_On_Res); <- when use Struct to byte fucntion
+                //    break;
+                //case (byte)Command.Lamp_Off_Req:
+                //    //Stores data sent from the client into the structure.
+                //    m_Lamp_Off_Req = ByteToStruct<Struct.Lamp_Off_Req>(data);
+                    
+                //    //Print out Log and Status Message.
+                //    Log("Lamp_Off_Req(Receive)");
+                //    Byte = Encoding.ASCII.GetBytes(m_Lamp_Off_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                //    StatusMsg("[Host:IN] Lamp_Off_Req,\r\n Byte[] : " + Byte + " " + m_Lamp_Off_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_Off_Req.Command + "]");
+
+                //    //Input a value for the structure variables.
+                //    m_Lamp_Off_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                //    m_Lamp_Off_Res.Command = (byte)Command.Lamp_Off_Res;
+                //    m_Lamp_Off_Res.Result = 1;
+
+                //    //Adds an Item(DataTime) to a sending byte array
+                //    byte[] StructLampOff_Res = StringToByte(m_Lamp_Off_Res.DataTime);
+                //    //Adds an Item(Command) to a sending byte array
+                //    StructLampOff_Res = addByteToArray_byte(StructLampOff_Res, m_Lamp_Off_Res.Command, (byte)SocketClass.totalPacketNum.Lamp_Off_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                //    //Adds an Item(Result) to a sending byte array
+                //    StructLampOff_Res = addByteToArray_byte(StructLampOff_Res, m_Lamp_Off_Res.Result, (byte)SocketClass.totalPacketNum.Lamp_Off_Res, (byte)SocketClass.Payload_Index.Lamp_Off_Result);
+
+                //    Host_SendData = StructLampOff_Res;
+                //    //Host_SendData = StructureToByte(m_Lamp_Off_Res); <- when use Struct to byte fucntion
+                //    break;
+                #endregion
+                case (byte)Command.Lamp_Status_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Lamp_Status_Req = ByteToStruct<Struct.Lamp_Status_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Lamp_Status_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Lamp_Status_Req,\r\n Byte[] : " + Byte + " " + m_Lamp_Status_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_Status_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Lamp_Status_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Lamp_Status_Res.Command = (byte)Command.Lamp_Status_Res;
+                    m_Lamp_Status_Res.Lamp_Status = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructLampStatus_Res = StringToByte(m_Lamp_Status_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructLampStatus_Res = addByteToArray_byte(StructLampStatus_Res, m_Lamp_Status_Res.Command, (byte)SocketClass.totalPacketNum.Lamp_Status_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Lamp_Status) to a sending byte array
+                    StructLampStatus_Res = addByteToArray_byte(StructLampStatus_Res, m_Lamp_Status_Res.Lamp_Status, (byte)SocketClass.totalPacketNum.Lamp_Status_Res, (byte)SocketClass.Payload_Index.Lamp_Status);
+
+                    Host_SendData = StructLampStatus_Res;
+                    //Host_SendData = StructureToByte(m_Lamp_Status_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Lamp_Use_Time_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Lamp_Use_Time_Req = ByteToStruct<Struct.Lamp_Use_Time_Req>(data);
+                    
+                    //Print out Log and Status Message.
+                    Log("Lamp_Use_Time_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_Use_Time_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Lamp_Use_Time_Req,\r\n Byte[] : " + Byte + " " + m_Lamp_Use_Time_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_Use_Time_Req.Command + "]");
+
+                    //Input a value for the structure variables.
+                    m_Lamp_Use_Time_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Lamp_Use_Time_Res.Command = (byte)Command.Lamp_Use_Time_Res;
+                    m_Lamp_Use_Time_Res.Lamp_Use_Time = 1234567;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructLampUseTime_Res = StringToByte(m_Lamp_Use_Time_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructLampUseTime_Res = addByteToArray_byte(StructLampUseTime_Res, m_Lamp_Use_Time_Res.Command, (byte)SocketClass.totalPacketNum.Lamp_Use_Time_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Lamp_Use_Time) to a sending byte array
+                    StructLampUseTime_Res = addByteToArray_string(StructLampUseTime_Res, m_Lamp_Use_Time_Res.Lamp_Use_Time.ToString(), (byte)SocketClass.totalPacketNum.Lamp_Use_Time_Res, (byte)SocketClass.Payload_Index.Lamp_Use_Time);
+
+                    Host_SendData = StructLampUseTime_Res;
+                    //Host_SendData = StructureToByte(m_Lamp_Use_Time_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Mode_Change_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Mode_Change_Req = ByteToStruct<Struct.Mode_Change_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Mode_Change_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Mode_Change_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Mode_Change_Req,\r\n Byte[] : " + Byte + " " + m_Mode_Change_Req.Command + " " + m_Mode_Change_Req.Mode_Control + "\r\n DateTime[" + Byte + "] Command[" + m_Mode_Change_Req.Command + "] Mode_Control[" + m_Mode_Change_Req.Mode_Control + "]");
+
+                    //Input a value for the structure variables.
+                    m_Mode_Change_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Mode_Change_Res.Command = (byte)Command.Mode_Change_Res;
+                    m_Mode_Change_Res.Result = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructModeChange_Res = StringToByte(m_Mode_Change_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructModeChange_Res = addByteToArray_byte(StructModeChange_Res, m_Mode_Change_Res.Command, (byte)SocketClass.totalPacketNum.Mode_Change_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Lamp_Use_Time) to a sending byte array
+                    StructModeChange_Res = addByteToArray_byte(StructModeChange_Res, m_Mode_Change_Res.Result, (byte)SocketClass.totalPacketNum.Mode_Change_Res, (byte)SocketClass.Payload_Index.Mode_Change_Result);
+
+                    Host_SendData = StructModeChange_Res;
+                    //Host_SendData = StructureToByte(m_Lamp_Use_Time_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Mode_Status_Req:
+                    //Stores data sent from the client into the structure.
+                    m_Mode_Status_Req = ByteToStruct<Struct.Mode_Status_Req>(data);
+
+                    //Print out Log and Status Message.
+                    Log("Mode_Status_Req(Receive)");
+                    Byte = Encoding.ASCII.GetBytes(m_Mode_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    StatusMsg("[Host:IN] Mode_Status_Req,\r\n Byte[] : " + Byte + " " + m_Mode_Status_Req.Command + " " + m_Mode_Status_Res.Mode_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Mode_Status_Req.Command + "] Mode_Status[" + m_Mode_Status_Res.Mode_Status +"]");
+
+                    //Input a value for the structure variables.
+                    m_Mode_Status_Res.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Mode_Status_Res.Command = (byte)Command.Mode_Status_Res;
+                    m_Mode_Status_Res.Mode_Status = 1;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructModeStatus_Res = StringToByte(m_Mode_Status_Res.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructModeStatus_Res = addByteToArray_byte(StructModeStatus_Res, m_Mode_Status_Res.Command, (byte)SocketClass.totalPacketNum.Mode_Status_Res, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Lamp_Use_Time) to a sending byte array
+                    StructModeStatus_Res = addByteToArray_byte(StructModeStatus_Res, m_Mode_Status_Res.Mode_Status, (byte)SocketClass.totalPacketNum.Mode_Status_Res, (byte)SocketClass.Payload_Index.Mode_Status);
+
+                    Host_SendData = StructModeStatus_Res;
+                    //Host_SendData = StructureToByte(m_Lamp_Use_Time_Res); <- when use Struct to byte fucntion
+                    break;
+                case (byte)Command.Alarm_Occurred_Post:
+                    //Input a value for the structure variables.
+                    m_Alarm_Occurred_Post.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    m_Alarm_Occurred_Post.Command = (byte)Command.Alarm_Occurred_Post;
+                    m_Alarm_Occurred_Post.Alarm_Status = 0;
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructOccurred_Post = StringToByte(m_Alarm_Occurred_Post.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructOccurred_Post = addByteToArray_byte(StructOccurred_Post, m_Alarm_Occurred_Post.Command, (byte)SocketClass.totalPacketNum.Alarm_Occurred_Post, (byte)SocketClass.Payload_Index.CommandNum);
+                    //Adds an Item(Lamp_Use_Time) to a sending byte array
+                    StructOccurred_Post = addByteToArray_string(StructOccurred_Post, m_Alarm_Occurred_Post.Alarm_Status.ToString(), (byte)SocketClass.totalPacketNum.Alarm_Occurred_Post, (byte)SocketClass.Payload_Index.Alarm_Occurred_Status);
+
+                    Host_SendData = StructOccurred_Post;
+                    //Host_SendData = StructureToByte(m_Alarm_Occurred_Post); <- when use Struct to byte fucntion
+                    break;
+            }                     
+        }
+
+        //Outputs Status message and Log to the client.
+        public void HostToClient_Send_Message()
+        {
+            switch (Host_SendData[(byte)Payload_Index.CommandNum])
+            {                                    
+                case (byte)Command.Gathering_Start_Res:
+                    string Byte = Encoding.ASCII.GetBytes(m_Gathering_Start_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Gathering_Start_Res(Send)");
+                    StatusMsg("[Host:OUT] Gathering_Start_Res,\r\n Byte[] : " + Byte + " " + m_Gathering_Start_Res.Command + " " + m_Gathering_Start_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Gathering_Start_Res.Command + "] Result[" + m_Gathering_Start_Res.Result + "]");
+                    break;
+                case (byte)Command.Gathering_Stop_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Gathering_Stop_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Gathering_Stop_Res(Send)");
+                    StatusMsg("[Host:OUT] Gathering_Stop_Res,\r\n Byte[] : " + Byte + " " + m_Gathering_Stop_Res.Command + " " + m_Gathering_Stop_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Gathering_Stop_Res.Command + "] Result[" + m_Gathering_Stop_Res.Result + "]");
+                    break;
+                case (byte)Command.Alarm_Clear_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Alarm_Clear_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Alarm_Clear_Res(Send)");
+                    StatusMsg("[Host:OUT] Alarm_Clear_Res,\r\n Byte[] : " + Byte + " " + m_Alarm_Clear_Res.Command + " " + m_Alarm_Clear_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Alarm_Clear_Res.Command + "] Result[" + m_Alarm_Clear_Res.Result + "]");
+                    break;
+                case (byte)Command.Alarm_Status_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Alarm_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Alarm_Status_Res(Send)");
+                    StatusMsg("[Host:OUT] Alarm_Status_Res,\r\n Byte[] : " + Byte + " " + m_Alarm_Status_Res.Command + " " + m_Alarm_Status_Res.Alarm_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Alarm_Status_Res.Command + "] Result[" + m_Alarm_Status_Res.Alarm_Status + "]");
+                    break;
+                case (byte)Command.KSP_Status_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_KSP_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("KSP_Status_Res(Send)");
+                    StatusMsg("[Host:OUT] KSP_Status_Res,\r\n Byte[] : " + Byte + " " + m_KSP_Status_Res.Command + " " + m_KSP_Status_Res.Device_Status + " " + m_KSP_Status_Res.Gathering_Status + "\r\n DateTime[" + Byte + "] Command[" + m_KSP_Status_Res.Command + "] Device_Status[" + m_KSP_Status_Res.Device_Status + "] Gathering_Status[" + m_KSP_Status_Res.Device_Status + "]");
+                    break;
+                case (byte)Command.Data_1_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Data_1_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Data_1_Res(Send)");
+                    StatusMsg("[Host:OUT] Data_1_Res,\r\n Byte[] : " + Byte + " " + m_Data_1_Res.Command + " " + m_Data_1_Res.Gathering_Status + " " + m_Data_1_Res.Separator + " " + m_Data_1_Res.Data_1 + " " + m_Data_1_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_1_Res.Command + "] Device_Status[" + m_Data_1_Res.Gathering_Status + "] Separator[" + m_Data_1_Res.Separator + "] Data_1[" + m_Data_1_Res.Data_1 + "] Result[" + m_Data_1_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_2_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Data_2_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Data_2_Res(Send)");
+                    StatusMsg("[Host:OUT] Data_2_Res,\r\n Byte[] : " + Byte + " " + m_Data_2_Res.Command + " " + m_Data_2_Res.Gathering_Status + " " + m_Data_2_Res.Separator + " " + m_Data_2_Res.Data_2 + " " + m_Data_2_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_2_Res.Command + "] Device_Status[" + m_Data_2_Res.Gathering_Status + "] Separator[" + m_Data_2_Res.Separator + "] Data_2[" + m_Data_2_Res.Data_2 + "] Result[" + m_Data_2_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_3_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Data_3_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    Log("Data_3_Res(Send)");
+                    StatusMsg("[Host:OUT] Data_3_Res,\r\n Byte[] : " + Byte + " " + m_Data_3_Res.Command + " " + m_Data_3_Res.Gathering_Status + " " + m_Data_3_Res.Separator + " " + m_Data_3_Res.Data_3 + " " + m_Data_3_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_3_Res.Command + "] Device_Status[" + m_Data_3_Res.Gathering_Status + "] Separator[" + m_Data_3_Res.Separator + "] Data_3[" + m_Data_3_Res.Data_3 + "] Result[" + m_Data_3_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_4_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Data_4_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    Log("Data_4_Res(Send)");
+                    StatusMsg("[Host:OUT] Data_4_Res,\r\n Byte[] : " + Byte + " " + m_Data_4_Res.Command + " " + m_Data_4_Res.Gathering_Status + " " + m_Data_4_Res.Separator + " " + m_Data_4_Res.Data_4 + " " + m_Data_4_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_4_Res.Command + "] Device_Status[" + m_Data_4_Res.Gathering_Status + "] Separator[" + m_Data_4_Res.Separator + "] Data_4[" + m_Data_4_Res.Data_4 + "] Result[" + m_Data_4_Res.Result + "]");
+                    break;
+                case (byte)Command.Data_All_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Data_All_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    Log("Data_All_Res(Send)");
+                    StatusMsg("[Host:OUT] Data_All_Res,\r\n Byte[] : " + Byte + " " + m_Data_All_Res.Command + " " + m_Data_All_Res.Gathering_Status + " " + m_Data_All_Res.Separator + " " + m_Data_All_Res.Data_1 + " " + m_Data_All_Res.Separator + " " + m_Data_All_Res.Data_2 + " " + m_Data_All_Res.Separator + " " + m_Data_All_Res.Data_3 + " " + m_Data_All_Res.Separator + " " + m_Data_All_Res.Data_4 + m_Data_All_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Data_All_Res.Command + "] Device_Status[" + m_Data_All_Res.Gathering_Status + " ] Separator[" + m_Data_All_Res.Separator + "] Data_1[" + m_Data_All_Res.Data_1 + "] Separator[" + m_Data_All_Res.Separator + "] Data_2[" + m_Data_All_Res.Data_2 + "] Separator[" + m_Data_All_Res.Separator + "] Data_3[" + m_Data_All_Res.Data_3 + "] Separator[" + m_Data_All_Res.Separator + "] Data_4[" + m_Data_All_Res.Data_4 + "] Result[" + m_Data_All_Res.Result + "]");
+                    break;
+                case (byte)Command.Lamp_On_Off_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_On_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Lamp_On_Res(Send)");
+                    StatusMsg("[Host:OUT] Lamp_On_Off_Res,\r\n Byte[] : " + Byte + " " + m_Lamp_On_Off_Res.Command + " " + m_Lamp_On_Off_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_On_Off_Res.Command + "] Result[" + m_Lamp_On_Off_Res.Result + "]");
+                    break;
+                case (byte)Command.Lamp_Status_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Lamp_Status_Res(Send)");
+                    StatusMsg("[Host:OUT] Lamp_Status_Res,\r\n Byte[] : " + Byte + " " + m_Lamp_Status_Res.Command + " " + m_Lamp_Status_Res.Lamp_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_Status_Res.Command + "] Lamp_Status[" + m_Lamp_Status_Res.Lamp_Status + "]");
+                    break;
+                case (byte)Command.Lamp_Use_Time_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Lamp_Use_Time_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());       
+                    Log("Lamp_Use_Time_Res(Send)");
+                    StatusMsg("[Host:OUT] Lamp_Use_Time_Res,\r\n Byte[] : " + Byte + " " + m_Lamp_Use_Time_Res.Command + " " + m_Lamp_Use_Time_Res.Lamp_Use_Time + "\r\n DateTime[" + Byte + "] Command[" + m_Lamp_Use_Time_Res.Command + "] Lamp_Use_Time[" + m_Lamp_Use_Time_Res.Lamp_Use_Time + "]");
+                    break;
+                case (byte)Command.Mode_Change_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Mode_Change_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    Log("Lamp_Status_Res(Send)");
+                    StatusMsg("[Host:OUT] Mode_Change_Res,\r\n Byte[] : " + Byte + " " + m_Mode_Change_Res.Command + " " + m_Mode_Change_Res.Result + "\r\n DateTime[" + Byte + "] Command[" + m_Mode_Change_Res.Command + "] Result[" + m_Mode_Change_Res.Result + "]");
+                    break;
+                case (byte)Command.Mode_Status_Res:
+                    Byte = Encoding.ASCII.GetBytes(m_Mode_Status_Res.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+                    Log("Lamp_Status_Res(Send)");
+                    StatusMsg("[Host:OUT] Mode_Status_Res,\r\n Byte[] : " + Byte + " " + m_Mode_Status_Res.Command + " " + m_Mode_Status_Res.Mode_Status + "\r\n DateTime[" + Byte + "] Command[" + m_Mode_Status_Res.Command + "] Mode_Status[" + m_Mode_Status_Res.Mode_Status + "]");
+                    break;
+                
+            }
+        }
+
+        //lb_log(listbox) message event
+        public void Log(string str)
+        {
+            if (SetLogMsg != null)
+            {
+                SetLogMsg(str);
+            }
+        }
+
+        //tb_status(textbox) message event
+        public void StatusMsg(string str)
+        {
+            if (SetStatusMsg != null)
+            {
+                SetStatusMsg(str);
+            }
+        }
+    }
+}
