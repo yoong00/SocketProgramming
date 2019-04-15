@@ -1,0 +1,851 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.IO;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Net;
+using System.Net.Sockets;
+
+
+namespace Zeus_Async
+{
+    public partial class MDIMainFrm : Form
+    {
+        public SocketClass m_SocketClass;
+        public MessageClass m_MessageClass;
+         
+        public MDIMainFrm()
+        {
+            m_SocketClass = new SocketClass(this);
+            m_MessageClass = new MessageClass(this);
+
+            InitializeComponent();
+            //default ip,port
+            tb_ip.Text = "127.0.0.1";
+            tb_port.Text = "8000";
+                        
+            //Log(lb_log) and status message(tb_status) Event handler
+            SocketClass.SetLogMsg += new SocketClass.SetLogHandler(EVENT_SET_LOG_MSG);
+            SocketClass.SetStatusMsg += new SocketClass.SetStatusHandler(EVENT_SET_STATUS_MSG);
+
+            string Connection = "DateTime = " + DateTime.Now.ToString("yyyyMMdd-HHmmss.f") + " " + "Command = " + "Connection_Req";
+            Gathering_data(Connection);
+
+            
+        }
+       
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            tb_ip.Focus();
+        }
+
+        //A button Related to Host or Client Connect
+        private void bt_Connection_Click(object sender, EventArgs e)
+        {
+            if (rb_client.Checked == true)
+            {
+                string Client_ip = tb_ip.Text;
+                string Clinet_port = tb_port.Text;
+
+                //Client Connection
+                if (m_SocketClass.client == null)
+                {
+                    bt_Connection.Text = "Disconnect";
+                    m_SocketClass.Connection_Client(Client_ip,Clinet_port);
+                }
+                else if (m_SocketClass.client != null)
+                {
+                    bt_Connection.Text = "Connect";
+                    m_SocketClass.Log("Client Disconnected.");
+                    m_SocketClass.client.Close();
+                    m_SocketClass.client = null;
+                }
+            }
+            else if (rb_host.Checked == true)
+            {
+                string Host_ip = tb_ip.Text;
+                string Host_port = tb_port.Text;
+
+                //Host Connection
+                if (m_SocketClass.Host == null)
+                {
+                    bt_Connection.Text = "Disconnect";
+                    EVENT_SET_LOG_MSG("Host Started.");
+
+                    m_SocketClass.Listen_Host(Host_ip,Host_port);
+                }
+                else if (m_SocketClass.Host != null)
+                {
+                    bt_Connection.Text = "Connect";
+                    EVENT_SET_LOG_MSG("Host Disconnected.");
+
+                    m_SocketClass.Host.Close();
+                    m_SocketClass.Host = null;                                
+                }
+
+            }
+        }
+
+        //When use the Host(radio button)
+        private void rb_Host_CheckedChanged(object sender, EventArgs e)
+        {  
+            bt_GatheringStart.Enabled = false;
+            bt_GatheringStop.Enabled = false;
+            bt_alarm_clear.Enabled = false;
+            bt_alarm_status.Enabled = false;
+            bt_ksp_status.Enabled = false;
+            bt_data_1.Enabled = false;
+            bt_data_2.Enabled = false;
+            bt_data_3.Enabled = false;
+            bt_data_4.Enabled = false;
+            bt_data_all.Enabled = false;
+            bt_lamp_on.Enabled = false;
+            bt_lamp_off.Enabled = false;
+            bt_lamp_status.Enabled = false;
+            bt_lamp_use_time.Enabled = false;
+            bt_mode_change_auto.Enabled = false;
+            bt_mode_change_manual.Enabled = false;
+            bt_mode_status.Enabled = false;
+            
+            if (m_SocketClass.Host != null)
+            {
+                bt_Connection.Text = "Disconnected";
+            }
+        }
+
+        //When use the Client(radio button)
+        private void rb_Client_CheckedChanged(object sender, EventArgs e)
+        {
+            Client_panel.Visible = true;
+            bt_GatheringStart.Enabled = true;
+            bt_GatheringStop.Enabled = true;
+            bt_alarm_clear.Enabled = true;
+            bt_alarm_status.Enabled = true;
+            bt_ksp_status.Enabled = true;
+            bt_data_1.Enabled = true;
+            bt_data_2.Enabled = true;
+            bt_data_3.Enabled = true;
+            bt_data_4.Enabled = true;
+            bt_data_all.Enabled = true;
+            bt_lamp_on.Enabled = true;
+            bt_lamp_off.Enabled = true;
+            bt_lamp_status.Enabled = true;
+            bt_lamp_use_time.Enabled = true;
+            bt_mode_change_auto.Enabled = true;
+            bt_mode_change_manual.Enabled = true;
+            bt_mode_status.Enabled = true;
+
+            if (bt_Connection.Text == "Disconnected")
+            {
+                bt_Connection.Text = "Connect";
+            }
+        }
+
+        //Packet Gathering Start Request Button
+        private void bt_GatheringStart_Click(object sender, EventArgs e)
+        {
+
+            try
+            {
+
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Gathering_Start_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Gathering_Start_Req command in the structure Command variable.
+                    m_SocketClass.m_Gathering_Start_Req.Command = (byte)SocketClass.Command.Gathering_Start_Req;
+                    //byte[] StructStart_Req = SocketClass.StructureToByte(m_SocketClass.m_Gathering_Start_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructStart_Req = m_SocketClass.StringToByte(m_SocketClass.m_Gathering_Start_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructStart_Req = m_SocketClass.addByteToArray_byte(StructStart_Req, m_SocketClass.m_Gathering_Start_Req.Command, (byte)SocketClass.totalPacketNum.Gathering_Start_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Gathering_Start_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Gathering_Start_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Gathering_Start_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Gathering_Start_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Gathering_Start_Req.Command + "]");                    
+                   
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructStart_Req, 0, StructStart_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);                
+                }
+            }
+            catch (Exception ex){}
+        }
+
+        //Packet Gathering Stop Request Button
+        private void bt_GatheringStop_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Gathering_Stop_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Gathering_Stop_Req command in the structure Command variable.
+                    m_SocketClass.m_Gathering_Stop_Req.Command = (byte)SocketClass.Command.Gathering_Stop_Req;
+                    //byte[] StructStop_Req = SocketClass.StructureToByte(m_SocketClass.m_Gathering_Stop_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructStop_Req = m_SocketClass.StringToByte(m_SocketClass.m_Gathering_Start_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructStop_Req = m_SocketClass.addByteToArray_byte(StructStop_Req, m_SocketClass.m_Gathering_Stop_Req.Command, (byte)SocketClass.totalPacketNum.Gathering_Stop_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Gathering_Stop_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Gathering_Stop_Req(Send)");
+                    //Shows the Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Gathering_Stop_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Gathering_Stop_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Gathering_Stop_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructStop_Req, 0, StructStop_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Alarm Clear Request Button
+        private void bt_alarm_clear_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Alarm_Clear_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Alarm_Clear_Req command in the structure Command variable.
+                    m_SocketClass.m_Alarm_Clear_Req.Command = (byte)SocketClass.Command.Alarm_Clear_Req;
+
+                    //byte[] StructAlarmClear_Req = SocketClass.StructureToByte(m_SocketClass.m_Alarm_Clear_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructAlarmClear_Req = m_SocketClass.StringToByte(m_SocketClass.m_Alarm_Clear_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructAlarmClear_Req = m_SocketClass.addByteToArray_byte(StructAlarmClear_Req, m_SocketClass.m_Alarm_Clear_Req.Command, (byte)SocketClass.totalPacketNum.Alarm_Clear_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Alarm_Clear_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Alarm_Clear_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Alarm_Clear_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Alarm_Clear_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Alarm_Clear_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructAlarmClear_Req, 0, StructAlarmClear_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Alarm Status Request Button
+        private void bt_alarm_status_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //input the current time in the DataTime variable.
+                    m_SocketClass.m_Alarm_Status_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //input the value of Alarm_Status_Req command in the structure Command variable.
+                    m_SocketClass.m_Alarm_Status_Req.Command = (byte)SocketClass.Command.Alarm_Status_Req;
+
+                    //byte[] StructAlarmStatus_Req = SocketClass.StructureToByte(m_SocketClass.m_Alarm_Status_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructAlarmStatus_Req = m_SocketClass.StringToByte(m_SocketClass.m_Alarm_Status_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructAlarmStatus_Req = m_SocketClass.addByteToArray_byte(StructAlarmStatus_Req, m_SocketClass.m_Alarm_Status_Req.Command, (byte)SocketClass.totalPacketNum.Alarm_Status_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Alarm_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Alarm_Status_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Alarm_Status_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Alarm_Status_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Alarm_Status_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructAlarmStatus_Req, 0, StructAlarmStatus_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet KSP Status Request Button
+        private void bt_ksp_status_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_KSP_Status_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of KSP_Status_Req command in the structure Command variable.
+                    m_SocketClass.m_KSP_Status_Req.Command = (byte)SocketClass.Command.KSP_Status_Req;
+
+                    //byte[] StructKSPStatus_Req = SocketClass.StructureToByte(m_SocketClass.m_KSP_Status_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructKSPStatus_Req = m_SocketClass.StringToByte(m_SocketClass.m_KSP_Status_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructKSPStatus_Req = m_SocketClass.addByteToArray_byte(StructKSPStatus_Req, m_SocketClass.m_KSP_Status_Req.Command, (byte)SocketClass.totalPacketNum.KSP_Status_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_KSP_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("KSP_Status_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] KSP_Status_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_KSP_Status_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_KSP_Status_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructKSPStatus_Req, 0, StructKSPStatus_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Data 1 Request Button
+        private void bt_data_1_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Data_1_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Data_1_Req command in the structure Command variable.
+                    m_SocketClass.m_Data_1_Req.Command = (byte)SocketClass.Command.Data_1_Req;
+
+                    //byte[] StructData1_Req = SocketClass.StructureToByte(m_SocketClass.m_Data_1_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData1_Req = m_SocketClass.StringToByte(m_SocketClass.m_Data_1_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData1_Req = m_SocketClass.addByteToArray_byte(StructData1_Req, m_SocketClass.m_Data_1_Req.Command, (byte)SocketClass.totalPacketNum.Data_1_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Data_1_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Data_1_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Data_1_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Data_1_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Data_1_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructData1_Req, 0, StructData1_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Data 2 Request Button
+        private void bt_data_2_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Data_2_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Data_1_Req command in the structure Command variable.
+                    m_SocketClass.m_Data_2_Req.Command = (byte)SocketClass.Command.Data_2_Req;
+
+                    //byte[] StructData1_Req = SocketClass.StructureToByte(m_SocketClass.m_Data_1_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData2_Req = m_SocketClass.StringToByte(m_SocketClass.m_Data_2_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData2_Req = m_SocketClass.addByteToArray_byte(StructData2_Req, m_SocketClass.m_Data_2_Req.Command, (byte)SocketClass.totalPacketNum.Data_2_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Data_2_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Data_2_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Data_2_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Data_2_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Data_2_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructData2_Req, 0, StructData2_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Data 3 Request Button
+        private void bt_data_3_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Data_3_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Data_3_Req command in the structure Command variable.
+                    m_SocketClass.m_Data_3_Req.Command = (byte)SocketClass.Command.Data_3_Req;
+
+                    //byte[] StructData3_Req = SocketClass.StructureToByte(m_SocketClass.m_Data_3_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData3_Req = m_SocketClass.StringToByte(m_SocketClass.m_Data_3_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData3_Req = m_SocketClass.addByteToArray_byte(StructData3_Req, m_SocketClass.m_Data_3_Req.Command, (byte)SocketClass.totalPacketNum.Data_3_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Data_3_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Data_3_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Data_3_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Data_3_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Data_3_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructData3_Req, 0, StructData3_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Data 4 Request Button
+        private void bt_data_4_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Data_4_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Data_4_Req command in the structure Command variable.
+                    m_SocketClass.m_Data_4_Req.Command = (byte)SocketClass.Command.Data_4_Req;
+
+                    //byte[] StructData4_Req = SocketClass.StructureToByte(m_SocketClass.m_Data_4_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructData4_Req = m_SocketClass.StringToByte(m_SocketClass.m_Data_4_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructData4_Req = m_SocketClass.addByteToArray_byte(StructData4_Req, m_SocketClass.m_Data_4_Req.Command, (byte)SocketClass.totalPacketNum.Data_4_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Data_4_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Data_4_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Data_4_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Data_4_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Data_4_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructData4_Req, 0, StructData4_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Data Allll Request Button
+        private void bt_data_all_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Data_All_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Data_All_Req command in the structure Command variable.
+                    m_SocketClass.m_Data_All_Req.Command = (byte)SocketClass.Command.Data_All_Req;
+
+                    //byte[] StructData_All_Req = SocketClass.StructureToByte(m_SocketClass.m_Data_All_Req); <- when use Struct to byte fucntion
+                    
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructDataAll_Req = m_SocketClass.StringToByte(m_SocketClass.m_Data_All_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructDataAll_Req = m_SocketClass.addByteToArray_byte(StructDataAll_Req, m_SocketClass.m_Data_All_Req.Command, (byte)SocketClass.totalPacketNum.Data_All_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Data_All_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Data_All_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Data_All_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Data_All_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Data_All_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructDataAll_Req, 0, StructDataAll_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Lamp On Request Button
+        private void bt_lamp_on_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Lamp_On_Off_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Lamp_On_Req command in the structure Command variable.
+                    m_SocketClass.m_Lamp_On_Off_Req.Command = (byte)SocketClass.Command.Lamp_On_Off_Req;
+
+                    m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control = (byte)SocketClass.Payload.Lamp_Contorl_On;
+                    //byte[] StructLampOnOff_Req = SocketClass.StructureToByte(m_SocketClass.m_Lamp_On_Off_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructLampOnOff_Req = m_SocketClass.StringToByte(m_SocketClass.m_Lamp_On_Off_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructLampOnOff_Req = m_SocketClass.addByteToArray_byte(StructLampOnOff_Req, m_SocketClass.m_Lamp_On_Off_Req.Command, (byte)SocketClass.totalPacketNum.Lamp_On_Off_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    StructLampOnOff_Req = m_SocketClass.addByteToArray_byte(StructLampOnOff_Req, m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control, (byte)SocketClass.totalPacketNum.Lamp_On_Off_Req, (byte)SocketClass.Payload_Index.Laml_Control);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Lamp_On_Off_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Lamp_On_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Lamp_On_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Lamp_On_Off_Req.Command + " " + m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control +"\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Lamp_On_Off_Req.Command + "] Lamp_Control[" + m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructLampOnOff_Req, 0, StructLampOnOff_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Lamp Off Request Button
+        private void bt_lamp_off_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Lamp_On_Off_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Lamp_On_Req command in the structure Command variable.
+                    m_SocketClass.m_Lamp_On_Off_Req.Command = (byte)SocketClass.Command.Lamp_On_Off_Req;
+
+                    m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control = (byte)SocketClass.Payload.Lamp_Control_Off;
+                    //byte[] StructLampOnOff_Req = SocketClass.StructureToByte(m_SocketClass.m_Lamp_On_Off_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructLampOnOff_Req = m_SocketClass.StringToByte(m_SocketClass.m_Lamp_On_Off_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructLampOnOff_Req = m_SocketClass.addByteToArray_byte(StructLampOnOff_Req, m_SocketClass.m_Lamp_On_Off_Req.Command, (byte)SocketClass.totalPacketNum.Lamp_On_Off_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    StructLampOnOff_Req = m_SocketClass.addByteToArray_byte(StructLampOnOff_Req, m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control, (byte)SocketClass.totalPacketNum.Lamp_On_Off_Req, (byte)SocketClass.Payload_Index.Laml_Control);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Lamp_On_Off_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Lamp_Off_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Lamp_Off_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Lamp_On_Off_Req.Command + " " + m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Lamp_On_Off_Req.Command + "] Lamp_Control[" + m_SocketClass.m_Lamp_On_Off_Req.Lamp_Control + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructLampOnOff_Req, 0, StructLampOnOff_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Lamp Status Request Button
+        private void bt_lamp_status_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Lamp_Status_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Lamp_Status_Req command in the structure Command variable.
+                    m_SocketClass.m_Lamp_Status_Req.Command = (byte)SocketClass.Command.Lamp_Status_Req;
+
+                    //byte[] StructLampStatus_Req = SocketClass.StructureToByte(m_SocketClass.m_Lamp_Status_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructLampStatus_Req = m_SocketClass.StringToByte(m_SocketClass.m_Lamp_Status_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructLampStatus_Req = m_SocketClass.addByteToArray_byte(StructLampStatus_Req, m_SocketClass.m_Lamp_Status_Req.Command, (byte)SocketClass.totalPacketNum.Lamp_Status_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Lamp_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Lamp_Status_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Lamp_Status_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Lamp_Status_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Lamp_Status_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructLampStatus_Req, 0, StructLampStatus_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        //Packet Lamp Use Time Request Button
+        private void bt_lamp_use_time_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Lamp_Use_Time_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of Lamp_Use_Time_Req command in the structure Command variable.
+                    m_SocketClass.m_Lamp_Use_Time_Req.Command = (byte)SocketClass.Command.Lamp_Use_Time_Req;
+
+                    //byte[] StructLampUseTime_Req = SocketClass.StructureToByte(m_SocketClass.m_Lamp_Use_Time_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructLampUseTime_Req = m_SocketClass.StringToByte(m_SocketClass.m_Lamp_Use_Time_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructLampUseTime_Req = m_SocketClass.addByteToArray_byte(StructLampUseTime_Req, m_SocketClass.m_Lamp_Use_Time_Req.Command, (byte)SocketClass.totalPacketNum.Lamp_Use_Time_Req, (byte)SocketClass.Payload_Index.CommandNum);
+                    
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Lamp_Use_Time_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Lamp_Use_Time_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Lamp_Use_Time_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Lamp_Use_Time_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Lamp_Use_Time_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructLampUseTime_Req, 0, StructLampUseTime_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { MessageBox.Show(ex.ToString()); }
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (m_SocketClass.client != null)
+            {
+                m_SocketClass.client.Close();
+            }
+        }
+
+        //Status textbox Event
+        public void EVENT_SET_STATUS_MSG(string strMsg)
+        {
+            if (this.tb_status.InvokeRequired)
+            {
+                this.Invoke(new MethodInvoker(delegate
+                {
+                    tb_status.AppendText(strMsg);
+                    tb_status.AppendText("\r\n");
+
+                    Activate();
+                    tb_status.Focus();
+
+                    tb_status.SelectionStart = tb_status.Text.Length;
+                    tb_status.ScrollToCaret();
+                }));
+            }
+            else
+            {
+                tb_status.AppendText(strMsg);
+                tb_status.AppendText("\r\n");
+
+                Activate();
+                tb_status.Focus();
+
+                tb_status.SelectionStart = tb_status.Text.Length;
+                tb_status.ScrollToCaret();
+            }
+        }
+
+        //Log listbox Event
+        public void EVENT_SET_LOG_MSG(string strMsg)
+        {
+            if (this.lb_log.InvokeRequired)
+            {
+                this.Invoke(new MethodInvoker(delegate
+                {
+                    lb_log.SelectedIndex = lb_log.Items.Count - 1;
+                    lb_log.Items.Add(string.Format("[{0}]{1}", DateTime.Now.ToString(), strMsg));
+                }));
+            }
+            else
+            {
+                lb_log.SelectedIndex = lb_log.Items.Count - 1;
+                lb_log.Items.Add(string.Format("[{0}]{1}", DateTime.Now.ToString(), strMsg));
+            }
+        }
+
+        private void bt_mode_change_auto_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Mode_Change_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of KSP_Status_Req command in the structure Command variable.
+                    m_SocketClass.m_Mode_Change_Req.Command = (byte)SocketClass.Command.Mode_Change_Req;
+
+                    m_SocketClass.m_Mode_Change_Req.Mode_Control = (byte)SocketClass.Payload.Mode_Change_Auto;
+                    //byte[] StructMode_Change_Req = SocketClass.StructureToByte(m_SocketClass.m_Mode_Change_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructMode_Change_Req = m_SocketClass.StringToByte(m_SocketClass.m_Mode_Change_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructMode_Change_Req = m_SocketClass.addByteToArray_byte(StructMode_Change_Req, m_SocketClass.m_Mode_Change_Req.Command, (byte)SocketClass.totalPacketNum.Mode_Change_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    StructMode_Change_Req = m_SocketClass.addByteToArray_byte(StructMode_Change_Req, m_SocketClass.m_Mode_Change_Req.Mode_Control, (byte)SocketClass.totalPacketNum.Mode_Change_Req, (byte)SocketClass.Payload_Index.Mode_Change_Control);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Mode_Change_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Mode_Change_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Mode_Change_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Mode_Change_Req.Command + " " + m_SocketClass.m_Mode_Change_Req.Mode_Control + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Mode_Change_Req.Command + "] Mode_Control[" + m_SocketClass.m_Mode_Change_Req.Mode_Control + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructMode_Change_Req, 0, StructMode_Change_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        private void bt_mode_change_manual_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_Mode_Change_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of KSP_Status_Req command in the structure Command variable.
+                    m_SocketClass.m_Mode_Change_Req.Command = (byte)SocketClass.Command.Mode_Change_Req;
+
+                    m_SocketClass.m_Mode_Change_Req.Mode_Control = (byte)SocketClass.Payload.Mode_Change_Manual;
+                    //byte[] StructMode_Change_Req = SocketClass.StructureToByte(m_SocketClass.m_Mode_Change_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructMode_Change_Req = m_SocketClass.StringToByte(m_SocketClass.m_Mode_Change_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructMode_Change_Req = m_SocketClass.addByteToArray_byte(StructMode_Change_Req, m_SocketClass.m_Mode_Change_Req.Command, (byte)SocketClass.totalPacketNum.Mode_Change_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    StructMode_Change_Req = m_SocketClass.addByteToArray_byte(StructMode_Change_Req, m_SocketClass.m_Mode_Change_Req.Mode_Control, (byte)SocketClass.totalPacketNum.Mode_Change_Req, (byte)SocketClass.Payload_Index.Mode_Change_Control);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_Mode_Change_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("Mode_Change_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] Mode_Change_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_Mode_Change_Req.Command + " " + m_SocketClass.m_Mode_Change_Req.Mode_Control + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_Mode_Change_Req.Command + "] Mode_Control[" + m_SocketClass.m_Mode_Change_Req.Mode_Control + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructMode_Change_Req, 0, StructMode_Change_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+        private void bt_mode_status_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (m_SocketClass.client != null)
+                {
+                    //Input the current time in the DataTime variable.
+                    m_SocketClass.m_KSP_Status_Req.DataTime = DateTime.Now.ToString("yyyyMMdd-HHmmss.f");
+                    //Input the value of KSP_Status_Req command in the structure Command variable.
+                    m_SocketClass.m_KSP_Status_Req.Command = (byte)SocketClass.Command.KSP_Status_Req;
+
+                    //byte[] StructKSPStatus_Req = SocketClass.StructureToByte(m_SocketClass.m_KSP_Status_Req); <- when use Struct to byte fucntion
+
+                    //Adds an Item(DataTime) to a sending byte array
+                    byte[] StructKSPStatus_Req = m_SocketClass.StringToByte(m_SocketClass.m_KSP_Status_Req.DataTime);
+                    //Adds an Item(Command) to a sending byte array
+                    StructKSPStatus_Req = m_SocketClass.addByteToArray_byte(StructKSPStatus_Req, m_SocketClass.m_KSP_Status_Req.Command, (byte)SocketClass.totalPacketNum.KSP_Status_Req, (byte)SocketClass.Payload_Index.CommandNum);
+
+                    string Byte = Encoding.ASCII.GetBytes(m_SocketClass.m_KSP_Status_Req.DataTime).Aggregate("", (acc, b) => (acc.Length == 0 ? "" : acc + " ") + b.ToString());
+
+                    //Shows the log in a textbox(lb_log)
+                    m_SocketClass.Log("KSP_Status_Req(Send)");
+                    //Shows Status Message in a listbox(tb_stats)
+                    m_SocketClass.StatusMsg("[Client:OUT] KSP_Status_Req,\r\n Byte[] : " + Byte + " " + m_SocketClass.m_KSP_Status_Req.Command + "\r\n DateTime[" + Byte + "] Command[" + m_SocketClass.m_KSP_Status_Req.Command + "]");
+                    //Sends the byte array to the host
+                    m_SocketClass.CallbackSocketC.BeginSend(StructKSPStatus_Req, 0, StructKSPStatus_Req.Length, SocketFlags.None, new AsyncCallback(m_SocketClass.SendData_Client), m_SocketClass.CallbackSocketC);
+                }
+            }
+            catch (Exception ex) { }
+        }
+
+
+        Process[] pro = Process.GetProcessesByName("ClientUI.vshost");
+
+        [DllImport("User32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, ref COPYDATASTRUCT lParam);
+
+        public const Int32 WM_COPYDATA = 0x4A;
+
+        public struct COPYDATASTRUCT
+        {
+            public IntPtr dwData;
+            public int cbData;
+            [MarshalAs(UnmanagedType.LPStr)]
+            public string lpData;
+        }
+
+        public COPYDATASTRUCT cds;
+
+        protected override void WndProc(ref Message m)
+        {
+            try
+            {
+                switch (m.Msg)
+                {
+                    case WM_COPYDATA:
+                        cds = (COPYDATASTRUCT)m.GetLParam(typeof(COPYDATASTRUCT));
+                        MessageBox.Show(cds.lpData);
+                        break;
+                    default: 
+
+                        base.WndProc(ref m);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        
+        private void button1_Click(object sender, EventArgs e)
+        {
+            Process[] pro = Process.GetProcessesByName("ZeusUI.vshost");
+            string Connection1 = "DateTime = 20190117-200048.6  Command = Data_2_Res Data = 1323.111 Result = Pass";
+
+            byte[] buff = System.Text.Encoding.Default.GetBytes(Connection1);
+            COPYDATASTRUCT cds = new COPYDATASTRUCT();
+
+            cds.dwData = IntPtr.Zero;
+            cds.cbData = buff.Length + 1;
+            cds.lpData = Connection1;
+
+            SendMessage(pro[0].MainWindowHandle, WM_COPYDATA, IntPtr.Zero, ref cds);           
+        
+        }
+
+        private void Gathering_data(string command)
+        {
+            const Int32 WM_COPYDATA = 0x4A;
+            Process[] pro = Process.GetProcessesByName("ZeusUI.vshost");
+
+            byte[] buff = System.Text.Encoding.Default.GetBytes(command);
+            COPYDATASTRUCT cds = new COPYDATASTRUCT();
+
+            cds.dwData = IntPtr.Zero;
+            cds.cbData = buff.Length + 1;
+            cds.lpData = command;
+
+            SendMessage(pro[0].MainWindowHandle, WM_COPYDATA, IntPtr.Zero, ref cds);
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            Process[] pro = Process.GetProcessesByName("ZeusUI.vshost");
+            string Connection1 = "DateTime = 20190117-200048.6  Command = Alarm_Status_Res Alarm_Status = 0";
+
+            byte[] buff = System.Text.Encoding.Default.GetBytes(Connection1);
+            COPYDATASTRUCT cds = new COPYDATASTRUCT();
+
+            cds.dwData = IntPtr.Zero;
+            cds.cbData = buff.Length + 1;
+            cds.lpData = Connection1;
+
+            SendMessage(pro[0].MainWindowHandle, WM_COPYDATA, IntPtr.Zero, ref cds);    
+        }
+        
+
+    }
+}
