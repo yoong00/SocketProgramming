@@ -1,0 +1,890 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+
+namespace Zeus_Async
+{
+    //Item-related structures
+    public class Struct 
+    {
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]    
+        public struct Gathering_Start_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+
+            
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Gathering_Start_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Gathering_Stop_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Gathering_Stop_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            //[FieldOffset(0)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Alarm_Clear_Req 
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Alarm_Clear_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Alarm_Status_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Alarm_Status_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Alarm_Status;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct KSP_Status_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct KSP_Status_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Device_Status;
+            public byte Gathering_Status;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_1_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+
+        }        
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]    
+        public struct Data_1_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Gathering_Status;
+            public char Separator;
+            public double Data_1;            
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_2_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            } 
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_2_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Command;
+            public byte Gathering_Status;
+            public char Separator;
+            public double Data_2;
+            public byte Result;
+
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_3_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_3_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Gathering_Status;
+            public char Separator;
+            public double Data_3;
+            public byte Result;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_4_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_4_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Gathering_Status;
+            public char Separator;
+            public double Data_4;
+            public byte Result;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_All_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Data_All_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public byte Gathering_Status;
+            public char Separator;
+            public double Data_1;
+            public char Separator1;
+            public double Data_2;
+            public char Separator2;
+            public double Data_3;
+            public char Separator3;
+            public double Data_4;
+            public byte Result;
+
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_On_Off_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Lamp_Control;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_On_Off_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_On_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_On_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_Off_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_Off_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_Status_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_Status_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Lamp_Status;
+            
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_Use_Time_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Lamp_Use_Time_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public Int32 Lamp_Use_Time;
+//            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 5)]
+//            public char[] LampTime;
+//             public string Lamp_Use_Time
+//             {
+//                 get { return new string(LampTime); }
+//                 set
+//                 {
+//                     if (value.Length == 5)
+//                     {
+//                         LampTime = value.ToArray();
+//                     }
+//                     else
+//                     {
+//                         throw new InvalidOperationException("String length was net 5.");
+//                     }
+//                 }
+//             }
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Mode_Change_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Mode_Control;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Mode_Change_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Result;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Mode_Status_Req
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Mode_Status_Res
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Mode_Status;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public struct Alarm_Occurred_Post
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public char[] TimeC;
+            public byte Command;
+            public string DataTime
+            {
+                get { return new string(TimeC); }
+                set
+                {
+                    if (value.Length == 17)
+                    {
+                        TimeC = value.ToArray();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("String length was net 17.");
+                    }
+                }
+            }
+            public byte Alarm_Status;
+        }
+
+    }
+}
