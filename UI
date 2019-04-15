@@ -1,3 +1,338 @@
+//mainform
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace ZeusUI
+{
+    public partial class Form1 : Form
+    {
+        [DllImport("User32", EntryPoint = "FindWindow")]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll")]
+        public static extern void SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        private const int SW_SHOWNORMAL = 1;
+
+        [DllImport("User32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, ref COPYDATASTRUCT lParam);
+        public const Int32 WM_COPYDATA = 0x4A;
+        public Timer chkConnection;
+        public struct COPYDATASTRUCT
+        {
+            public IntPtr dwData;
+            public int cbData;
+            [MarshalAs(UnmanagedType.LPStr)]
+            public string lpData;
+        }
+
+        Process[] pro = Process.GetProcessesByName("Zeus_Async.vshost");
+
+        public COPYDATASTRUCT cdsR;
+
+        FormLog mFormLog = new FormLog();
+
+        public Form1()
+        {
+            
+            Process[] processes = Process.GetProcesses();
+
+            bool isExecuting = false;
+            foreach(Process proc in processes)
+            {
+                if (proc.ProcessName.Equals("SM32Pro_MX"))
+                {
+
+                    isExecuting = true;
+                    break;
+                }
+            }
+
+            if (!isExecuting)
+            {
+                string SM32PrmMXPath = Application.StartupPath + "\\SM32Pro_MX.lnk";
+                Process.Start(SM32PrmMXPath);
+            }
+
+            InitializeComponent();
+
+            conectionInit();
+
+            this.Controls.Add(mFormLog);
+            mFormLog.Dock = DockStyle.Fill;
+
+
+
+
+            PanSystem.BringToFront();
+        }
+
+        private void conectionInit()
+        {
+            ImgTCPNotCon.Visible = true;
+            ImgSensorNotCon.Visible = true;
+            ImgIONotCon.Visible = true;
+
+            progressTCP.Visible = false;
+            progressSensor.Visible = false;
+            progressIO.Visible = false;
+
+
+            strMainCon.Text = "NOT_CONNECT";
+            strMainCon.BackColor = Color.Crimson;
+        }
+
+
+        protected override void WndProc(ref Message m)
+        {
+            try
+            {
+                switch (m.Msg)
+                {
+                    case WM_COPYDATA:
+                        cdsR = (COPYDATASTRUCT)m.GetLParam(typeof(COPYDATASTRUCT));
+
+                        SenddataToViewform(cdsR.lpData);
+
+                        break;
+                    default:
+                        base.WndProc(ref m);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+        private void SenddataToViewform(string Receive_Data)
+        {
+            if(Receive_Data.Contains("Connection_Req"))
+            {
+                strMainCon.Text = "CONNECTION";
+                strMainCon.BackColor = Color.YellowGreen;
+                chkConnection = new Timer();
+                this.chkConnection.Tick += new System.EventHandler(this.chkConnection_Tick);
+                chkConnection.Interval = 1000;
+                chkConnection.Enabled = true;
+                chkConnection.Start();
+            }
+        }
+
+        
+        private void MainPan_Paint(object sender, PaintEventArgs e)
+        {
+            //Graphics v = e.Graphics;
+            //DrawRoundRect(v, Pens.Blue, e.ClipRectangle.Left, e.ClipRectangle.Top, e.ClipRectangle.Width - 1, e.ClipRectangle.Height - 1, 10);
+            //Without rounded corners
+            //e.Graphics.DrawRectangle(Pens.Blue, e.ClipRectangle.Left, e.ClipRectangle.Top, e.ClipRectangle.Width - 1, e.ClipRectangle.Height - 1);
+            //base.OnPaint(e);
+        }
+
+        public void DrawRoundRect(Graphics g, Pen p, float X, float Y, float width, float height, float radius)
+        {
+            GraphicsPath gp = new GraphicsPath();
+            gp.AddLine(X + radius, Y, X + width - (radius * 2), Y);
+            gp.AddArc(X + width - (radius * 2), Y, radius * 2, radius * 2, 270, 90);
+            gp.AddLine(X + width, Y + radius, X + width, Y + height - (radius * 2));
+            gp.AddArc(X + width - (radius * 2), Y + height - (radius * 2), radius * 2, radius * 2, 0, 90);
+            gp.AddLine(X + width - (radius * 2), Y + height, X + radius, Y + height);
+            gp.AddArc(X, Y + height - (radius * 2), radius * 2, radius * 2, 90, 90);
+            gp.AddLine(X, Y + height - (radius * 2), X, Y + radius);
+            gp.AddArc(X, Y, radius * 2, radius * 2, 180, 90);
+            gp.CloseFigure();
+            g.DrawPath(p, gp);
+            gp.Dispose();
+        }
+
+        private void btnLog_Click(object sender, EventArgs e)
+        {
+            mFormLog.BringToFront();
+        }
+
+        private void btnSystem_Click(object sender, EventArgs e)
+        {
+            PanSystem.BringToFront();
+        }
+
+        private void chkConnection_Tick(object sender, EventArgs e)
+        {
+            Process[] processes = Process.GetProcesses();
+
+            bool isExecuting = false;
+            foreach (Process proc in processes)
+            {
+                if (proc.ProcessName.Contains("SM32Pro_MX"))
+                {
+
+                    isExecuting = true;
+                    break;
+                }
+            }
+
+            if (!isExecuting)
+            {
+                strMainCon.Text = "NOT_CONNECT";
+                strMainCon.BackColor = Color.Crimson;
+            }
+        }
+    }
+}
+//view_loading
+
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+
+namespace ZeusUI
+{
+    public partial class View_Loading_2 : Form
+    {
+
+        Timer timeback = new Timer();
+        Timer timerrocket = new Timer();
+        Timer timeball = new Timer();
+
+        public View_Loading_2()
+        {
+            InitializeComponent();
+            timeback.Tick += new EventHandler(resource);
+            timeball.Tick += new EventHandler(bal);
+            timerrocket.Tick += new EventHandler(rocketup);
+            defaul();
+
+        }
+        private static DateTime Delay(int MS)
+        {
+            DateTime ThisMoment = DateTime.Now;
+            TimeSpan duration = new TimeSpan(0, 0, 0, 0, MS);
+            DateTime AfterWards = ThisMoment.Add(duration);
+
+            while (AfterWards >= ThisMoment)
+            {
+                System.Windows.Forms.Application.DoEvents();
+                ThisMoment = DateTime.Now;
+            }
+
+            return DateTime.Now;
+        }
+
+        
+        void defaul()
+        {
+            linerocket.Height = 1; linerocket.Width = 0; linerocket.Left = 341;
+            ball.Top = 262; ball.Visible = false; ball.BringToFront();
+            rocket.Height = 64; rocket.Top = 320; rocket.Visible = false;
+
+            //image location
+            ball.ImageLocation = "C:/Users/yongb/Downloads/rocket/Circle_blue.png";
+            rocket.ImageLocation = "C:/Users/yongb/Downloads/rocket/rocket_white.png";
+            anim.HideSync(label1);
+
+            //Timer interval
+            timeback.Interval = 30;
+            timeball.Interval = 40;
+            timerrocket.Interval = 10;
+
+            timeback.Start(); //first
+
+        }
+
+        //Initial
+        int wd = 0; int down = 1, lt = 5; int rocktop = -1;
+
+        void resource(object sender, EventArgs e)
+        {
+            linerocket.Width += wd;
+
+            if(linerocket.Width < 1)
+            {
+                wd = 8;
+            }
+            if(linerocket.Width > 104)
+            {
+                timeback.Stop();
+                timerrocket.Start();
+            }
+
+            //
+            anim.ShowSync(label1);
+
+        }
+        void bal(object sender, EventArgs e)
+        {
+            ball.Top += down;
+            if(ball.Top < 265)
+            {
+                ball.Visible = true;
+                down = 1;
+            }
+            if(ball.Top > 305)
+            {
+                timeball.Interval = 10; //make fast;
+                rocket.ImageLocation = "C:/Users/yongb/Downloads/rocket/rocket_blue.png";
+                
+                ball.Visible = false;   
+                down = 30;
+                rocket.Top -= down;
+                if(rocket.Top < -60)
+                {
+                    linerocket.Width -= lt;
+                    linerocket.Left += lt;
+                    if(linerocket.Left > 470)
+                    {
+                        down = 1;
+                        timeball.Stop();
+                        defaul();
+                    }
+                }
+            }
+        }
+        void rocketup(object sender, EventArgs e)
+        {
+            rocket.Top += rocktop;
+            if(rocket.Top > 318)
+            {
+                rocket.Visible = true;
+                rocktop = -5;
+            }
+            if(rocket.Top < 250)
+            {
+                rocktop = -1;
+                timerrocket.Stop();
+                timeball.Start();
+            }        
+
+       
+        }
+
+        private void Loading_Load(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
+
+//view_alarm
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
